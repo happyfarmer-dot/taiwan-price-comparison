@@ -75,6 +75,11 @@
       </div>
 
       <div class="flex items-center gap-2 shrink-0">
+        <a href="https://colab.research.google.com/github/happyfarmer-dot/taiwan-price-comparison/blob/main/colab/update_taiwan_prices.ipynb"
+          target="_blank" rel="noopener noreferrer" title="開啟 Google Colab 自動抓價與資料更新筆記本"
+          class="px-2.5 py-1.5 text-xs font-medium rounded-full bg-[var(--card)] hover:bg-[var(--secondary)] border border-[var(--border)] transition hidden md:inline-flex items-center gap-1">
+          <span>📓 Colab 算力更新</span>
+        </a>
         <button id="btn-theme-toggle" type="button" title="切換深色／淺色模式"
           class="w-8 h-8 rounded-full bg-[var(--card)] hover:bg-[var(--secondary)] border border-[var(--border)] transition cursor-pointer flex items-center justify-center text-xs">
           🌓
@@ -321,7 +326,13 @@
 
     <!-- Footer -->
     <footer class="pt-4 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-      <span>🟢 近期低點／🟡 常態均價／🔴 偏貴 依各通路歷史促銷價與常態均價比對；開啟「🚗 計入來回路程成本」可評估遠距量販店是否划算。</span>
+      <span>
+        🟢 近期低點／🟡 常態均價／🔴 偏貴 依歷史促銷與均價比對；
+        <a href="https://colab.research.google.com/github/happyfarmer-dot/taiwan-price-comparison/blob/main/colab/update_taiwan_prices.ipynb"
+          target="_blank" rel="noopener noreferrer" class="text-[var(--link)] hover:underline">
+          📓 開啟 Google Colab 更新價格 ↗
+        </a>
+      </span>
       <span id="last-updated-text" class="tabular-nums"></span>
     </footer>
   </div>
@@ -906,7 +917,34 @@
       }).join('');
     }
 
-    function getAllProducts() { return [...customProducts, ...INITIAL_PRODUCTS]; }
+    let remoteProducts = null;
+    let dataSourceLabel = '內建基準資料';
+
+    function getAllProducts() { return [...customProducts, ...(remoteProducts || INITIAL_PRODUCTS)]; }
+
+    async function loadRemotePricesJson() {
+      try {
+        const res = await fetch(`./data/prices.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return false;
+        const json = await res.json();
+        if (json && Array.isArray(json.products) && json.products.length > 0) {
+          remoteProducts = json.products;
+          dataSourceLabel = json.updatedBy || 'data/prices.json';
+          if (json.updatedAt) {
+            const parsed = new Date(json.updatedAt);
+            if (!Number.isNaN(parsed.getTime())) state.lastUpdated = parsed;
+          }
+          updateTimestampText();
+          renderProductQueryPills();
+          renderFlatOfferLists();
+          return true;
+        }
+      } catch (err) {
+        // Fallback smoothly to INITIAL_PRODUCTS when opened locally via file://
+      }
+      return false;
+    }
+
     function getCurrentCoords() { return state.gpsCoords || LOCATIONS[state.locationKey] || LOCATIONS.taipei_xinyi; }
     function getStore(storeId) { return STORES.find(s => s.id === storeId) || { id: storeId, name: storeId, type: 'online', badge: '通路' }; }
     function getStoreDistance(storeId) {
@@ -978,7 +1016,7 @@
     function updateTimestampText() {
       const d = state.lastUpdated;
       const pad = n => String(n).padStart(2, '0');
-      document.getElementById('last-updated-text').textContent = `最後更新時間：${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      document.getElementById('last-updated-text').textContent = `${dataSourceLabel} · ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     }
 
     // =========================================================================
@@ -1797,17 +1835,21 @@
       });
     });
 
-    document.getElementById('btn-refresh').addEventListener('click', () => {
-      const targetProd = state.selectedProductId !== 'all'
-        ? getAllProducts().find(p => p.id === state.selectedProductId) || INITIAL_PRODUCTS[0]
-        : INITIAL_PRODUCTS[Math.floor(Math.random() * INITIAL_PRODUCTS.length)];
-      const o = targetProd.offers[Math.floor(Math.random() * targetProd.offers.length)];
-      const delta = Math.random() > 0.5 ? -3 : 3;
-      o.price = Math.max(10, o.price + delta);
-      if (delta < 0) o.promo = '剛降價!';
-      state.lastUpdated = new Date();
-      updateTimestampText();
-      renderFlatOfferLists();
+    document.getElementById('btn-refresh').addEventListener('click', async () => {
+      const loaded = await loadRemotePricesJson();
+      if (!loaded) {
+        const list = getAllProducts();
+        const targetProd = state.selectedProductId !== 'all'
+          ? list.find(p => p.id === state.selectedProductId) || list[0]
+          : list[Math.floor(Math.random() * list.length)];
+        const o = targetProd.offers[Math.floor(Math.random() * targetProd.offers.length)];
+        const delta = Math.random() > 0.5 ? -3 : 3;
+        o.price = Math.max(10, o.price + delta);
+        if (delta < 0) o.promo = '剛降價!';
+        state.lastUpdated = new Date();
+        updateTimestampText();
+        renderFlatOfferLists();
+      }
     });
 
     document.querySelectorAll('[data-close-modal]').forEach(btn => {
@@ -1906,6 +1948,7 @@
     renderProductQueryPills();
     renderStoreButtons();
     renderFlatOfferLists();
+    loadRemotePricesJson();
   </script>
 </body>
 </html>

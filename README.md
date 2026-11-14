@@ -1,18 +1,22 @@
-# 台灣產品即時比價與單位價錢系統
+# 台灣產品即時差價與單位價錢系統
 
-線上網頁（GitHub Pages）：<https://happyfarmer-dot.github.io/taiwan-price-comparison/>
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/happyfarmer-dot/taiwan-price-comparison/blob/main/colab/update_taiwan_prices.ipynb)
 
-## 主要功能
+- **線上網頁（GitHub Pages）**：<https://happyfarmer-dot.github.io/taiwan-price-comparison/>
+- **Colab 自動抓價／分析筆記本**：[`colab/update_taiwan_prices.ipynb`](https://colab.research.google.com/github/happyfarmer-dot/taiwan-price-comparison/blob/main/colab/update_taiwan_prices.ipynb)
+- **即時價格資料檔**：[`data/prices.json`](data/prices.json)
 
-- **查詢產品直接依價錢順序排列**：點選或搜尋商品後，將所有品項直接依價錢／單位價由低到高排列，優先顯示 `【品牌】完整商品名稱 ＋ 規格`。
-- **實體門市與網購平台分區顯示**：清楚拆分為「🏪 實體門市品項」與「🛒 網路電商品項」，可自由切換只看實體或只看網購。
-- **歷史低價燈號提示**：依各通路歷史促銷低點與均價標示 `🟢 近期低點・值得買`、`🟡 常態均價`、`🔴 偏貴・建議等特價`，並支援一鍵篩選低點商品。
-- **實體店來回路程成本折算**：可切換機車（\$3/km）、開車油資（\$7.5/km）或含時間成本（\$12.5/km），即時將「店內價 ＋ 來回路程成本」納入排序比較。
-- **購物籃「分開去各家買 vs. 同一家店一次買齊」分析**：自動對比拆單跑多家店的最低價與去單一門市一次買齊的總價差及路程成本，避免為省小錢四處奔波。
-- **超商／超市即期惜食時段雷達**：即時顯示 7-ELEVEN i珍食、全家友善時光、萊爾富惜福食堂、OK超商惜食光、全聯惜食與家樂福珍食時段並可試算折扣。
-- **促銷與單位價錢計算機 ＆ 自訂商品比價**：支援買一送一、加一元多一件、第 2 件 5 折／6 折、88 折、滿 488 折 50 試算，自訂比價商品會儲存在瀏覽器 `localStorage`。
-- **淺色／深色模式切換** ＆ 純垂直捲動響應式版面。
+## 系統架構（Google Colab ＋ GitHub Pages）
 
-## 本機開啟
-
-本專案為純靜態單頁網頁（`index.html`），下載後直接以瀏覽器開啟即可使用，無須安裝建置工具。
+1. **Google Colab 算力層**（[`colab/update_taiwan_prices.ipynb`](colab/update_taiwan_prices.ipynb)）：
+   - 載入 `data/prices.json` 並使用 Pandas 整理所有品牌、規格與單位價。
+   - 嘗試透過公開搜尋 API（如 PChome 24h）抓最新報價並更新歷史低點 `histLow`（具異常降級保護）。
+   - 提供表單式通路調價與實體 vs 網購價差 Matplotlib 圖表分析。
+   - 產出最新 `data/prices.json`，支援在 Colab 設定 `GITHUB_TOKEN` Secret 後一鍵推送回 GitHub 自動更新網頁。
+2. **靜態前端網站層**（[`index.html`](index.html)）：
+   - 自動讀取 `./data/prices.json` 顯示最新價格與最後更新來源（若於本機離線開啟則自動降級使用內建資料）。
+   - **查詢產品直接依價錢順序排列**：優先顯示 `【品牌】完整商品名稱 ＋ 規格`，並將「🏪 實體門市品項」與「🛒 網路電商品項」分開呈現。
+   - **歷史低價燈號提示**：`🟢 近期低點・值得買`、`🟡 常態均價`、`🔴 偏貴・建議等特價`。
+   - **實體店來回路程成本折算**：支援機車 / 開車油資 / 含時間成本折算重新排序。
+   - **購物籃同店一次買齊比較**：比較「分開去各家買」與「同一家店一次買齊」的淨價差與來回路程成本。
+   - **超商／超市惜食雷達 ＆ 促銷計算機 ＆ 深淺色切換**。
