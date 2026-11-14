@@ -22,6 +22,10 @@
       --link: #0284c7;
       --success: #059669;
       --error: #dc2626;
+      --colab-bg: rgba(249, 171, 0, 0.16);
+      --colab-hover: rgba(249, 171, 0, 0.28);
+      --colab-text: #9a3412;
+      --colab-border: rgba(217, 119, 6, 0.45);
     }
 
     :root.dark {
@@ -38,6 +42,10 @@
       --link: #38bdf8;
       --success: #10b981;
       --error: #f87171;
+      --colab-bg: rgba(249, 171, 0, 0.16);
+      --colab-hover: rgba(249, 171, 0, 0.28);
+      --colab-text: #fbbf24;
+      --colab-border: rgba(251, 191, 36, 0.45);
     }
 
     * { box-sizing: border-box; }
@@ -63,8 +71,8 @@
 
   <!-- Sticky Top Navigation Bar -->
   <header class="sticky top-0 z-30 backdrop-blur-md bg-[var(--background)]/90 border-b border-[var(--border)]">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-      <div class="flex items-center gap-2.5 min-w-0">
+    <div class="max-w-4xl mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-2 sm:gap-3">
+      <div class="flex items-center gap-2 min-w-0">
         <div class="w-8 h-8 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center font-bold text-sm shrink-0">
           比
         </div>
@@ -74,19 +82,22 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-2 shrink-0">
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <a href="https://colab.research.google.com/github/happyfarmer-dot/taiwan-price-comparison/blob/main/colab/update_taiwan_prices.ipynb"
           target="_blank" rel="noopener noreferrer" title="開啟 Google Colab 自動抓價與資料更新筆記本"
-          class="px-2.5 py-1.5 text-xs font-medium rounded-full bg-[var(--card)] hover:bg-[var(--secondary)] border border-[var(--border)] transition hidden md:inline-flex items-center gap-1">
-          <span>📓 Colab 算力更新</span>
+          class="px-2.5 py-1.5 text-xs font-semibold rounded-full bg-[var(--colab-bg)] text-[var(--colab-text)] hover:bg-[var(--colab-hover)] border border-[var(--colab-border)] transition inline-flex items-center gap-1">
+          <span>📓</span>
+          <span class="sm:hidden">Colab</span>
+          <span class="hidden sm:inline">Colab 算力更新</span>
         </a>
         <button id="btn-theme-toggle" type="button" title="切換深色／淺色模式"
           class="w-8 h-8 rounded-full bg-[var(--card)] hover:bg-[var(--secondary)] border border-[var(--border)] transition cursor-pointer flex items-center justify-center text-xs">
           🌓
         </button>
         <button id="btn-open-basket" type="button"
-          class="px-3 py-1.5 text-xs font-medium rounded-full bg-[var(--card)] hover:bg-[var(--secondary)] border border-[var(--border)] transition cursor-pointer flex items-center gap-1.5">
-          <span>🛒 購物籃與同店比價</span>
+          class="px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-full bg-[var(--card)] hover:bg-[var(--secondary)] border border-[var(--border)] transition cursor-pointer flex items-center gap-1.5">
+          <span class="sm:hidden">🛒 購物籃</span>
+          <span class="hidden sm:inline">🛒 購物籃與同店比價</span>
           <span class="px-1.5 py-0.5 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] tabular-nums font-bold" id="kpi-basket-count">0</span>
         </button>
         <button id="btn-calc" type="button"
@@ -94,8 +105,9 @@
           促銷計算機
         </button>
         <button id="btn-add-product" type="button"
-          class="px-3.5 py-1.5 text-xs font-medium rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition cursor-pointer">
-          + 新增比價
+          class="px-3 sm:px-3.5 py-1.5 text-xs font-medium rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition cursor-pointer">
+          <span class="sm:hidden">+ 新增</span>
+          <span class="hidden sm:inline">+ 新增比價</span>
         </button>
       </div>
     </div>
@@ -225,9 +237,14 @@
             <span id="gps-status" class="text-[var(--muted-foreground)]"></span>
           </div>
 
-          <div class="text-[var(--muted-foreground)] flex items-center gap-2">
+          <div class="text-[var(--muted-foreground)] flex flex-wrap items-center gap-2">
             <span id="current-query-summary"></span>
-            <button id="btn-refresh" type="button" title="模擬即時更新價格" class="hover:text-[var(--foreground)] cursor-pointer">↻ 更新報價</button>
+            <button id="btn-refresh" type="button" title="重新讀取最新報價" class="hover:text-[var(--foreground)] cursor-pointer">↻ 更新報價</button>
+            <a href="https://colab.research.google.com/github/happyfarmer-dot/taiwan-price-comparison/blob/main/colab/update_taiwan_prices.ipynb"
+              target="_blank" rel="noopener noreferrer"
+              class="px-2 py-0.5 rounded-md bg-[var(--colab-bg)] text-[var(--colab-text)] border border-[var(--colab-border)] hover:bg-[var(--colab-hover)] font-medium transition">
+              📓 開啟 Google Colab 更新 ↗
+            </a>
           </div>
         </div>
       </div>
