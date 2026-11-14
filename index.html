@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>台灣即時差價與單位比價系統</title>
+  <meta name="description" content="台灣實體門市與網購平台即時比價系統：查詢產品直接依價錢排序、單位價自動換算、歷史低價燈號、來回路程成本折算、同店一次買齊比較與即期惜食時段雷達。" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%230f766e'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='34' font-family='sans-serif' font-weight='bold'>比</text></svg>" />
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    :root {
+      --background: #f6f7f9;
+      --foreground: #111827;
+      --card: #ffffff;
+      --card-border: #e5e7eb;
+      --border: #d1d5db;
+      --primary: #0f766e;
+      --primary-foreground: #ffffff;
+      --secondary: #eef2f6;
+      --muted-foreground: #6b7280;
+      --placeholder: #9ca3af;
+      --link: #0284c7;
+      --success: #059669;
+      --error: #dc2626;
+    }
+
+    :root.dark {
+      --background: #0b0f17;
+      --foreground: #f3f4f6;
+      --card: #131a26;
+      --card-border: #1f2937;
+      --border: #374151;
+      --primary: #14b8a6;
+      --primary-foreground: #042f2e;
+      --secondary: #1e293b;
+      --muted-foreground: #9ca3af;
+      --placeholder: #6b7280;
+      --link: #38bdf8;
+      --success: #10b981;
+      --error: #f87171;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      overflow-x: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+  </style>
+  <script>
+    (function () {
+      try {
+        const saved = localStorage.getItem('tw_price_theme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (saved === 'dark' || (!saved && prefersDark)) {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased min-h-screen m-0 p-0">
+
+  <!-- Sticky Top Navigation Bar -->
+  <header class="sticky top-0 z-30 backdrop-blur-md bg-[var(--background)]/90 border-b border-[var(--border)]">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-8 h-8 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center font-bold text-sm shrink-0">
+          比
+        </div>
+        <div class="min-w-0">
+          <h1 class="text-sm sm:text-base font-bold tracking-tight truncate">台灣產品即時比價系統</h1>
+          <p class="text-[11px] text-[var(--muted-foreground)] truncate hidden sm:block">依價錢排序 · 歷史低價燈號 · 路程成本折算 · 同店一次買齊對比</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="btn-theme-toggle" type="button" title="切換深色／淺色模式"
+          class="w-8 h-8 rounded-full bg-[var(--card)] hover:bg-[var(--secondary)] border border-[var(--border)] transition cursor-pointer flex items-center justify-center text-xs">
+          🌓
+        </button>
+        <button id="btn-open-basket" type="button"
+          class="px-3 py-1.5 text-xs font-medium rounded-full bg-[var(--card)] hover:bg-[var(--secondary)] border border-[var(--border)] transition cursor-pointer flex items-center gap-1.5">
+          <span>🛒 購物籃與同店比價</span>
+          <span class="px-1.5 py-0.5 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] tabular-nums font-bold" id="kpi-basket-count">0</span>
+        </button>
+        <button id="btn-calc" type="button"
+          class="px-3 py-1.5 text-xs font-medium rounded-full bg-[var(--card)] hover:bg-[var(--secondary)] border border-[var(--border)] transition cursor-pointer hidden sm:inline-flex">
+          促銷計算機
+        </button>
+        <button id="btn-add-product" type="button"
+          class="px-3.5 py-1.5 text-xs font-medium rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition cursor-pointer">
+          + 新增比價
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- Step 1: Product Query & Price Sort Controls -->
+    <section class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
+      <!-- Search Input Bar -->
+      <div class="flex flex-col sm:flex-row gap-2.5">
+        <div class="relative flex-1">
+          <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] text-sm pointer-events-none">🔍</span>
+          <input id="search-input" type="text" placeholder="輸入產品名稱、品牌或通路查詢比價（例如：瑞穗鮮乳、舒潔衛生紙、ARIEL、全聯）..."
+            class="w-full pl-10 pr-20 py-2.5 text-sm rounded-xl bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--placeholder)] focus:outline-none focus:border-[var(--primary)] transition" />
+          <button id="btn-clear-search" type="button"
+            class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 px-2 py-1 text-xs rounded-md bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer">
+            ✕ 清除
+          </button>
+        </div>
+        <button id="btn-search-all" type="button"
+          class="px-4 py-2.5 text-xs font-medium rounded-xl border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--secondary)] transition cursor-pointer shrink-0">
+          顯示全部品項
+        </button>
+      </div>
+
+      <!-- Quick Product Query Selector -->
+      <div class="space-y-1.5">
+        <div class="text-xs text-[var(--muted-foreground)] font-medium">點選產品直接查詢並依價錢排序：</div>
+        <div id="product-query-pills" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <!-- Sort Order + View Split + Travel Cost (#10) & Historical Low (#5) Controls -->
+      <div class="pt-3 border-t border-[var(--card-border)] flex flex-col gap-3 text-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2.5">
+          <!-- Price Sort Switcher -->
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-[var(--muted-foreground)] font-medium mr-0.5">排列順序：</span>
+            <button type="button" data-sort="price_asc"
+              class="sort-btn px-3 py-1.5 rounded-lg font-medium transition cursor-pointer bg-[var(--primary)] text-[var(--primary-foreground)]">
+              💰 價錢由低到高
+            </button>
+            <button type="button" data-sort="unit_asc"
+              class="sort-btn px-3 py-1.5 rounded-lg font-medium transition cursor-pointer bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]">
+              ⚖️ 單位價由低到高
+            </button>
+            <button type="button" data-sort="price_desc"
+              class="sort-btn px-3 py-1.5 rounded-lg font-medium transition cursor-pointer bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]">
+              價錢由高到低
+            </button>
+            <button type="button" data-sort="dist_asc"
+              class="sort-btn px-3 py-1.5 rounded-lg font-medium transition cursor-pointer bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]">
+              📍 距離由近到遠
+            </button>
+          </div>
+
+          <!-- Channel Split Switcher -->
+          <div class="inline-flex p-0.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+            <button type="button" data-view-mode="split"
+              class="view-mode-btn px-2.5 py-1 rounded-lg font-medium transition cursor-pointer bg-[var(--primary)] text-[var(--primary-foreground)]">
+              實體＋網購分開列
+            </button>
+            <button type="button" data-view-mode="physical_only"
+              class="view-mode-btn px-2.5 py-1 rounded-lg font-medium transition cursor-pointer text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+              🏪 僅實體店
+            </button>
+            <button type="button" data-view-mode="online_only"
+              class="view-mode-btn px-2.5 py-1 rounded-lg font-medium transition cursor-pointer text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+              🛒 僅網購
+            </button>
+          </div>
+        </div>
+
+        <!-- Feature #10 (Travel Cost Toggle) + Feature #5 (Historical Low Filter) + Location Row -->
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Location & Distance -->
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+              <span>📍</span>
+              <select id="location-select" class="bg-transparent text-[var(--foreground)] focus:outline-none cursor-pointer">
+                <option value="taipei_xinyi">台北信義區</option>
+                <option value="taipei_daan">台北大安區</option>
+                <option value="newtaipei_banqiao">新北板橋區</option>
+                <option value="taoyuan_zhongli">桃園中壢區</option>
+                <option value="hsinchu_east">新竹東區</option>
+                <option value="taichung_xitun">台中西屯區</option>
+                <option value="tainan_east">台南東區</option>
+                <option value="kaohsiung_zuoying">高雄左營區</option>
+              </select>
+              <span class="text-[var(--border)]">|</span>
+              <select id="distance-filter" class="bg-transparent text-[var(--foreground)] focus:outline-none cursor-pointer">
+                <option value="all">不限距離</option>
+                <option value="1">1 km 內</option>
+                <option value="3">3 km 內</option>
+                <option value="5">5 km 內</option>
+              </select>
+            </div>
+
+            <!-- Feature #10: Physical Store Travel Cost Calculator Toggle -->
+            <div class="inline-flex flex-wrap items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+              <label class="inline-flex items-center gap-1.5 cursor-pointer select-none font-medium">
+                <input id="toggle-travel-cost" type="checkbox" class="accent-[var(--primary)]" />
+                <span>🚗 實體店計入來回路程成本</span>
+              </label>
+              <span class="text-[var(--border)]">|</span>
+              <select id="travel-rate-select" class="bg-transparent text-[var(--muted-foreground)] focus:outline-none cursor-pointer">
+                <option value="3">機車 $3/km (來回$6/km)</option>
+                <option value="7.5" selected>開車油資 $7.5/km (來回$15/km)</option>
+                <option value="12.5">含時間成本 $12.5/km (來回$25/km)</option>
+              </select>
+            </div>
+
+            <!-- Feature #5: Historical Low Filter Toggle -->
+            <label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[var(--background)] border border-[var(--border)] cursor-pointer select-none">
+              <input id="toggle-good-buy-only" type="checkbox" class="accent-[var(--primary)]" />
+              <span>🟢 只看「近期低點・值得買」</span>
+            </label>
+
+            <button id="btn-gps" type="button"
+              class="px-2.5 py-1.5 rounded-xl bg-[var(--background)] hover:bg-[var(--secondary)] border border-[var(--border)] transition cursor-pointer">
+              🎯 定位
+            </button>
+            <button id="btn-toggle-filters" type="button"
+              class="px-2.5 py-1.5 rounded-xl bg-[var(--background)] hover:bg-[var(--secondary)] border border-[var(--border)] transition cursor-pointer">
+              ⚙️ 通路與惜食 (<span id="kpi-stores" class="tabular-nums">0</span>)
+            </button>
+            <span id="gps-status" class="text-[var(--muted-foreground)]"></span>
+          </div>
+
+          <div class="text-[var(--muted-foreground)] flex items-center gap-2">
+            <span id="current-query-summary"></span>
+            <button id="btn-refresh" type="button" title="模擬即時更新價格" class="hover:text-[var(--foreground)] cursor-pointer">↻ 更新報價</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Expandable Store & Near-Expiry Filter Drawer -->
+      <div id="filter-drawer" class="hidden pt-3 border-t border-[var(--card-border)] space-y-3 text-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="font-semibold">快速切換通路：</span>
+            <button data-channel-preset="all" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">全部</button>
+            <button data-channel-preset="physical" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">僅實體</button>
+            <button data-channel-preset="supermarket" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">超市/量販</button>
+            <button data-channel-preset="cvs" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">四大超商</button>
+            <button data-channel-preset="drugstore" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">藥妝/百貨</button>
+            <button data-channel-preset="online" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">僅網購</button>
+            <button data-channel-preset="none" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer text-[var(--muted-foreground)]">清除</button>
+          </div>
+          <label class="flex items-center gap-1.5 cursor-pointer select-none">
+            <input id="promo-only" type="checkbox" class="accent-[var(--primary)]" />
+            <span>只顯示有促銷／優惠品項</span>
+          </label>
+        </div>
+
+        <div class="space-y-2">
+          <div>
+            <div class="text-[var(--muted-foreground)] mb-1">🏪 實體通路（依距離排序）：</div>
+            <div id="physical-stores" class="flex flex-wrap gap-1.5"></div>
+          </div>
+          <div>
+            <div class="text-[var(--muted-foreground)] mb-1">🛒 網購平台：</div>
+            <div id="online-stores" class="flex flex-wrap gap-1.5"></div>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold">⏰ 超商／超市即期惜食時段</span>
+              <span id="fresh-current-time" class="text-[var(--muted-foreground)] tabular-nums"></span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                <input id="apply-fresh-discount" type="checkbox" class="accent-[var(--primary)]" />
+                <span>生鮮乳品套用惜食折價</span>
+              </label>
+              <select id="fresh-time-override" class="px-2 py-1 rounded bg-[var(--card)] border border-[var(--border)]">
+                <option value="now">實際時間</option>
+                <option value="11:30">模擬 11:30</option>
+                <option value="17:30">模擬 17:30</option>
+                <option value="20:30">模擬 20:30</option>
+              </select>
+            </div>
+          </div>
+          <div id="fresh-radar-badges" class="flex flex-wrap gap-1.5"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- DIRECT PRICE-ORDERED LISTS (NO OUTER BRAND GROUP CARDS)               -->
+    <!-- 1. 實體店面產品清單 (依價錢排序)  |  2. 網購平台產品清單 (依價錢排序)      -->
+    <!-- ===================================================================== -->
+    <main class="space-y-8">
+      <!-- Zone 1: Physical Store Products Flat Price-Ordered List -->
+      <section id="section-physical" class="space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b-2 border-[var(--primary)]">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="px-2.5 py-1 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-bold">實體店面產品</span>
+            <h2 class="text-base font-bold tracking-tight" id="physical-zone-title">🏪 實體門市品項（依價錢順序排列）</h2>
+          </div>
+          <span id="physical-count-badge" class="text-xs text-[var(--muted-foreground)] tabular-nums"></span>
+        </div>
+
+        <div id="physical-flat-list" class="bg-[var(--card)] border border-[var(--border)] rounded-2xl divide-y divide-[var(--card-border)] overflow-hidden shadow-sm"></div>
+      </section>
+
+      <!-- Zone 2: Online Store Products Flat Price-Ordered List -->
+      <section id="section-online" class="space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b-2 border-[var(--primary)]">
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-bold">網購平台產品</span>
+            <h2 class="text-base font-bold tracking-tight">🛒 網路電商品項（依價錢順序排列）</h2>
+          </div>
+          <span id="online-count-badge" class="text-xs text-[var(--muted-foreground)] tabular-nums"></span>
+        </div>
+
+        <div id="online-flat-list" class="bg-[var(--card)] border border-[var(--border)] rounded-2xl divide-y divide-[var(--card-border)] overflow-hidden shadow-sm"></div>
+      </section>
+    </main>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="hidden bg-[var(--card)] border border-[var(--border)] rounded-2xl p-12 text-center space-y-2">
+      <div class="text-base font-semibold">找不到符合查詢條件的產品品項</div>
+      <p class="text-xs text-[var(--muted-foreground)]">請點選上方產品按鈕、取消「只看近期低點」、放寬距離篩選，或點開「⚙️ 通路與惜食」勾選更多通路。</p>
+    </div>
+
+    <!-- Footer -->
+    <footer class="pt-4 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <span>🟢 近期低點／🟡 常態均價／🔴 偏貴 依各通路歷史促銷價與常態均價比對；開啟「🚗 計入來回路程成本」可評估遠距量販店是否划算。</span>
+      <span id="last-updated-text" class="tabular-nums"></span>
+    </footer>
+  </div>
+
+  <!-- Modal: Unit Price Calculator -->
+  <div id="modal-calc" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-[var(--card-border)] pb-3">
+        <h2 class="text-base font-bold">促銷與單位價錢計算機</h2>
+        <button data-close-modal="modal-calc" class="w-7 h-7 rounded-full hover:bg-[var(--secondary)] text-[var(--muted-foreground)] cursor-pointer">✕</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div class="p-3.5 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-2.5">
+          <div class="font-semibold text-sm">方案 A</div>
+          <label class="block">
+            <span class="text-[var(--muted-foreground)]">標示售價 (NT$)</span>
+            <input id="calc-a-price" type="number" min="1" value="199" class="mt-1 w-full px-2.5 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] tabular-nums" />
+          </label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="block">
+              <span class="text-[var(--muted-foreground)]">單件容量</span>
+              <input id="calc-a-qty" type="number" min="0.01" step="any" value="500" class="mt-1 w-full px-2.5 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] tabular-nums" />
+            </label>
+            <label class="block">
+              <span class="text-[var(--muted-foreground)]">組內件數</span>
+              <input id="calc-a-pack" type="number" min="1" value="1" class="mt-1 w-full px-2.5 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] tabular-nums" />
+            </label>
+          </div>
+          <label class="block">
+            <span class="text-[var(--muted-foreground)]">促銷折扣規則</span>
+            <select id="calc-a-promo" class="mt-1 w-full px-2.5 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)]">
+              <option value="none">無促銷（原價）</option>
+              <option value="bogo">買 1 送 1（需買 2 組）</option>
+              <option value="plus1" selected>加 1 元多 1 件（需買 2 組）</option>
+              <option value="second_50">第 2 件 5 折（需買 2 組）</option>
+              <option value="second_60">第 2 件 6 折（需買 2 組）</option>
+              <option value="off_88">結帳再 88 折</option>
+              <option value="488_50">滿 488 折 50</option>
+            </select>
+          </label>
+          <div class="pt-2 border-t border-[var(--card-border)]">
+            <div id="calc-a-result" class="text-sm font-bold tabular-nums">-</div>
+            <div id="calc-a-note" class="text-[11px] text-[var(--muted-foreground)] mt-0.5"></div>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-2.5">
+          <div class="font-semibold text-sm">方案 B</div>
+          <label class="block">
+            <span class="text-[var(--muted-foreground)]">標示售價 (NT$)</span>
+            <input id="calc-b-price" type="number" min="1" value="349" class="mt-1 w-full px-2.5 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] tabular-nums" />
+          </label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="block">
+              <span class="text-[var(--muted-foreground)]">單件容量</span>
+              <input id="calc-b-qty" type="number" min="0.01" step="any" value="500" class="mt-1 w-full px-2.5 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] tabular-nums" />
+            </label>
+            <label class="block">
+              <span class="text-[var(--muted-foreground)]">組內件數</span>
+              <input id="calc-b-pack" type="number" min="1" value="2" class="mt-1 w-full px-2.5 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] tabular-nums" />
+            </label>
+          </div>
+          <label class="block">
+            <span class="text-[var(--muted-foreground)]">促銷折扣規則</span>
+            <select id="calc-b-promo" class="mt-1 w-full px-2.5 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)]">
+              <option value="none" selected>無促銷（原價）</option>
+              <option value="bogo">買 1 送 1（需買 2 組）</option>
+              <option value="plus1">加 1 元多 1 件（需買 2 組）</option>
+              <option value="second_50">第 2 件 5 折（需買 2 組）</option>
+              <option value="second_60">第 2 件 6 折（需買 2 組）</option>
+              <option value="off_88">結帳再 88 折</option>
+              <option value="488_50">滿 488 折 50</option>
+            </select>
+          </label>
+          <div class="pt-2 border-t border-[var(--card-border)]">
+            <div id="calc-b-result" class="text-sm font-bold tabular-nums">-</div>
+            <div id="calc-b-note" class="text-[11px] text-[var(--muted-foreground)] mt-0.5"></div>
+          </div>
+        </div>
+      </div>
+      <div id="calc-verdict" class="p-3 rounded-xl bg-[var(--secondary)] text-xs font-medium text-center"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Custom Product -->
+  <div id="modal-add" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <form id="form-add-product" class="bg-[var(--card)] border border-[var(--border)] rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-[var(--card-border)] pb-3">
+        <h2 class="text-base font-bold">新增自訂產品比價</h2>
+        <button type="button" data-close-modal="modal-add" class="w-7 h-7 rounded-full hover:bg-[var(--secondary)] text-[var(--muted-foreground)] cursor-pointer">✕</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <label class="block">
+          <span class="text-[var(--muted-foreground)]">品牌名稱 *</span>
+          <input id="add-brand" required type="text" placeholder="例如：義美食品" class="mt-1 w-full px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--border)]" />
+        </label>
+        <label class="block">
+          <span class="text-[var(--muted-foreground)]">完整商品名稱 *</span>
+          <input id="add-name" required type="text" placeholder="例如：100% 全脂鮮乳" class="mt-1 w-full px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--border)]" />
+        </label>
+        <label class="block">
+          <span class="text-[var(--muted-foreground)]">分類</span>
+          <select id="add-category" class="mt-1 w-full px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--border)]">
+            <option value="生鮮乳品">生鮮乳品</option>
+            <option value="紙品衛生">紙品衛生</option>
+            <option value="日用清潔">日用清潔</option>
+            <option value="飲料零食">飲料零食</option>
+            <option value="糧油乾貨">糧油乾貨</option>
+            <option value="個人護理">個人護理</option>
+          </select>
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="block">
+            <span class="text-[var(--muted-foreground)]">計量單位</span>
+            <select id="add-unit" class="mt-1 w-full px-2.5 py-2 rounded-lg bg-[var(--background)] border border-[var(--border)]">
+              <option value="ml">ml</option>
+              <option value="g">g</option>
+              <option value="抽">抽</option>
+              <option value="顆">顆</option>
+              <option value="片">片</option>
+              <option value="瓶">瓶</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="text-[var(--muted-foreground)]">換算基準</span>
+            <select id="add-display-per" class="mt-1 w-full px-2.5 py-2 rounded-lg bg-[var(--background)] border border-[var(--border)]">
+              <option value="100">每 100 單位</option>
+              <option value="1">每 1 單位</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold">各通路品項與售價</span>
+          <button type="button" id="btn-add-offer-row" class="text-xs text-[var(--link)] hover:underline cursor-pointer">+ 增加通路品項</button>
+        </div>
+        <div id="custom-offers-container" class="space-y-2"></div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-[var(--card-border)]">
+        <button type="button" data-close-modal="modal-add" class="px-4 py-2 text-xs rounded-xl border border-[var(--border)] cursor-pointer">取消</button>
+        <button type="submit" class="px-4 py-2 text-xs font-medium rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] cursor-pointer">儲存並排序比價</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Feature #7 Modal: Multi-Store Split vs. Single-Store One-Stop Optimizer -->
+  <div id="modal-basket" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-[var(--card-border)] pb-3">
+        <div>
+          <h2 class="text-base font-bold">🛒 購物籃：「分開去各家買」vs.「同一家店一次買齊」比價分析</h2>
+          <p class="text-[11px] text-[var(--muted-foreground)] mt-0.5">自動計算拆單最低價與同店一次買齊差額（含實體店來回路程成本評估），避免為了省小錢跑多家店</p>
+        </div>
+        <button data-close-modal="modal-basket" class="w-7 h-7 rounded-full hover:bg-[var(--secondary)] text-[var(--muted-foreground)] cursor-pointer shrink-0">✕</button>
+      </div>
+      <div id="basket-content" class="space-y-4 text-xs"></div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. Locations & Mainstream Taiwan Retailers
+    // =========================================================================
+    const LOCATIONS = {
+      taipei_xinyi: { name: '台北市 信義區', lat: 25.0408, lng: 121.5674 },
+      taipei_daan: { name: '台北市 大安區', lat: 25.0416, lng: 121.5438 },
+      newtaipei_banqiao: { name: '新北市 板橋區', lat: 25.0143, lng: 121.4637 },
+      taoyuan_zhongli: { name: '桃園市 中壢區', lat: 24.9537, lng: 121.2257 },
+      hsinchu_east: { name: '新竹市 東區', lat: 24.8098, lng: 120.9752 },
+      taichung_xitun: { name: '台中市 西屯區', lat: 24.1672, lng: 120.6403 },
+      tainan_east: { name: '台南市 東區', lat: 22.9971, lng: 120.2194 },
+      kaohsiung_zuoying: { name: '高雄市 左營區', lat: 22.6695, lng: 120.3023 }
+    };
+
+    const STORES = [
+      { id: 'pxmart', name: '全聯福利中心', type: 'physical', subType: 'supermarket', badge: '超市', baseKm: 0.35, branchSuffix: '門市' },
+      { id: 'carrefour', name: '家樂福', type: 'physical', subType: 'supermarket', badge: '量販/超市', baseKm: 0.85, branchSuffix: '店' },
+      { id: 'rtmart', name: '大潤發 RT-Mart', type: 'physical', subType: 'supermarket', badge: '量販', baseKm: 2.30, branchSuffix: '量販店' },
+      { id: 'amart', name: '愛買 a.mart', type: 'physical', subType: 'supermarket', badge: '量販', baseKm: 2.65, branchSuffix: '店' },
+      { id: 'costco', name: '好市多 Costco', type: 'physical', subType: 'supermarket', badge: '會員量販', baseKm: 4.40, branchSuffix: '賣場' },
+      { id: 'simplemart', name: '美廉社', type: 'physical', subType: 'supermarket', badge: '社區超市', baseKm: 0.28, branchSuffix: '社區店' },
+      { id: '711', name: '7-ELEVEN', type: 'physical', subType: 'cvs', badge: '超商', baseKm: 0.14, branchSuffix: '門市' },
+      { id: 'familymart', name: '全家便利商店', type: 'physical', subType: 'cvs', badge: '超商', baseKm: 0.19, branchSuffix: '店' },
+      { id: 'hilife', name: '萊爾富 Hi-Life', type: 'physical', subType: 'cvs', badge: '超商', baseKm: 0.42, branchSuffix: '店' },
+      { id: 'okmart', name: 'OK超商', type: 'physical', subType: 'cvs', badge: '超商', baseKm: 0.55, branchSuffix: '門市' },
+      { id: 'poya', name: '寶雅 POYA', type: 'physical', subType: 'drugstore', badge: '生活百貨', baseKm: 0.72, branchSuffix: '店' },
+      { id: 'watsons', name: '屈臣氏 Watsons', type: 'physical', subType: 'drugstore', badge: '藥妝', baseKm: 0.48, branchSuffix: '門市' },
+      { id: 'cosmed', name: '康是美 COSMED', type: 'physical', subType: 'drugstore', badge: '藥妝', baseKm: 0.52, branchSuffix: '門市' },
+      { id: 'showba', name: '小北百貨', type: 'physical', subType: 'drugstore', badge: '五金百貨', baseKm: 1.15, branchSuffix: '門市' },
+      { id: 'momo', name: 'momo購物網', type: 'online', subType: 'online', badge: '網購' },
+      { id: 'pchome', name: 'PChome 24h', type: 'online', subType: 'online', badge: '網購' },
+      { id: 'shopee', name: '蝦皮購物', type: 'online', subType: 'online', badge: '網購' },
+      { id: 'coupang', name: '酷澎 Coupang', type: 'online', subType: 'online', badge: '網購' },
+      { id: 'yahoo', name: 'Yahoo購物中心', type: 'online', subType: 'online', badge: '網購' }
+    ];
+
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+      return +(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(2);
+    }
+
+    function getStoreDistanceKm(store, userLat, userLng, locationKey) {
+      if (store.type !== 'physical') return null;
+      let hash = 0;
+      const seed = `${store.id}_${locationKey}`;
+      for (let i = 0; i < seed.length; i++) {
+        hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+        hash |= 0;
+      }
+      const factor = 0.75 + (Math.abs(hash) % 55) / 100;
+      const center = LOCATIONS[locationKey] || LOCATIONS.taipei_xinyi;
+      if (state.gpsCoords) {
+        const angle = (Math.abs(hash) % 360) * (Math.PI / 180);
+        const deg = (store.baseKm * factor) / 111;
+        return haversineKm(userLat, userLng, center.lat + Math.cos(angle) * deg, center.lng + Math.sin(angle) * deg);
+      }
+      return +(store.baseKm * factor).toFixed(2);
+    }
+
+    function formatDistance(km) {
+      if (km === null || km === undefined) return '';
+      return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+    }
+
+    function getBranchName(store, locationKey) {
+      const area = (LOCATIONS[locationKey]?.name || '台北').split(' ')[1] || '市區';
+      return `${area}${store.branchSuffix}`;
+    }
+
+    function calcRoundTripCost(distKm) {
+      if (distKm === null || distKm === undefined) return 0;
+      const oneWayRate = parseFloat(state.travelRatePerKm) || 7.5;
+      return Math.max(2, Math.round(distKm * 2 * oneWayRate));
+    }
+
+    // =========================================================================
+    // 2. Product Catalog with Historical Low / Average Reference (#5)
+    // =========================================================================
+    const INITIAL_PRODUCTS = [
+      {
+        id: 'p1',
+        brand: '統一瑞穗',
+        name: '瑞穗全脂鮮乳',
+        shortLabel: '🥛 統一瑞穗鮮乳',
+        searchKey: '統一瑞穗全脂鮮乳',
+        category: '生鮮乳品',
+        baseUnit: 'ml',
+        displayPer: 100,
+        offers: [
+          { storeId: 'familymart', itemTitle: '瑞穗全脂鮮乳 鮮乳坊規格', price: 95, originalPrice: 99, histLow: 89, histAvg: 95, qty: 930, specText: '930ml 單瓶', promo: '隨買跨店取', shipping: '門市自取' },
+          { storeId: '711', itemTitle: '瑞穗全脂鮮乳 單瓶裝', price: 99, originalPrice: 99, histLow: 89, histAvg: 95, qty: 930, specText: '930ml 單瓶', promo: '', shipping: '門市自取' },
+          { storeId: 'rtmart', itemTitle: '瑞穗全脂鮮乳 家庭號', price: 168, originalPrice: 189, histLow: 165, histAvg: 176, qty: 1858, specText: '1858ml 單瓶', promo: '量販會員價', shipping: '門市自取' },
+          { storeId: 'pxmart', itemTitle: '瑞穗全脂鮮乳 家庭號', price: 169, originalPrice: 185, histLow: 165, histAvg: 176, qty: 1858, specText: '1858ml 單瓶', promo: '週末特價', shipping: '門市自取' },
+          { storeId: 'amart', itemTitle: '瑞穗全脂鮮乳 家庭號', price: 174, originalPrice: 189, histLow: 165, histAvg: 176, qty: 1858, specText: '1858ml 單瓶', promo: '', shipping: '門市自取' },
+          { storeId: 'carrefour', itemTitle: '瑞穗全脂鮮乳 家庭號', price: 175, originalPrice: 189, histLow: 165, histAvg: 176, qty: 1858, specText: '1858ml 單瓶', promo: '', shipping: '門市自取' },
+          { storeId: 'simplemart', itemTitle: '瑞穗全脂鮮乳 家庭號', price: 179, originalPrice: 185, histLow: 168, histAvg: 176, qty: 1858, specText: '1858ml 單瓶', promo: '', shipping: '門市自取' },
+          { storeId: 'costco', itemTitle: '瑞穗全脂鮮乳 3入量販組', price: 249, originalPrice: 269, histLow: 245, histAvg: 259, qty: 2784, specText: '928ml × 3瓶 (2784ml)', promo: '賣場會員價', shipping: '賣場自取' },
+          { storeId: 'momo', itemTitle: '瑞穗全脂鮮乳 低溫宅配2入組', price: 349, originalPrice: 378, histLow: 339, histAvg: 358, qty: 3716, specText: '1858ml × 2瓶 (3716ml)', promo: '低溫宅配免運', shipping: '冷藏免運' },
+          { storeId: 'coupang', itemTitle: '瑞穗保久乳 全脂24入箱購', price: 468, originalPrice: 550, histLow: 459, histAvg: 499, qty: 5160, specText: '215ml × 24瓶 (5160ml)', promo: '火箭速配', shipping: '滿490免運' },
+          { storeId: 'pchome', itemTitle: '瑞穗保久乳 全脂24入箱購', price: 499, originalPrice: 550, histLow: 459, histAvg: 499, qty: 5160, specText: '215ml × 24瓶 (5160ml)', promo: '整箱特惠', shipping: '滿490免運' }
+        ]
+      },
+      {
+        id: 'p2',
+        brand: '舒潔 Kleenex',
+        name: '棉柔舒適抽取式衛生紙',
+        shortLabel: '🧻 舒潔抽取衛生紙',
+        searchKey: '舒潔棉柔舒適抽取式衛生紙110抽',
+        category: '紙品衛生',
+        baseUnit: '抽',
+        displayPer: 100,
+        offers: [
+          { storeId: 'rtmart', itemTitle: '棉柔舒適抽取式衛生紙 12包袋裝', price: 155, originalPrice: 199, histLow: 149, histAvg: 169, qty: 1320, specText: '110抽 × 12包 (1320抽)', promo: '檔期促銷', shipping: '門市自取' },
+          { storeId: 'pxmart', itemTitle: '棉柔舒適抽取式衛生紙 12包袋裝', price: 159, originalPrice: 199, histLow: 155, histAvg: 169, qty: 1320, specText: '110抽 × 12包 (1320抽)', promo: '福利卡特價', shipping: '門市自取' },
+          { storeId: 'carrefour', itemTitle: '棉柔舒適抽取式衛生紙 12包袋裝', price: 165, originalPrice: 199, histLow: 155, histAvg: 169, qty: 1320, specText: '110抽 × 12包 (1320抽)', promo: '', shipping: '門市自取' },
+          { storeId: 'simplemart', itemTitle: '棉柔舒適抽取式衛生紙 12包袋裝', price: 169, originalPrice: 199, histLow: 159, histAvg: 169, qty: 1320, specText: '110抽 × 12包 (1320抽)', promo: '', shipping: '門市自取' },
+          { storeId: 'showba', itemTitle: '棉柔舒適抽取式衛生紙 12包袋裝', price: 175, originalPrice: 199, histLow: 159, histAvg: 169, qty: 1320, specText: '110抽 × 12包 (1320抽)', promo: '', shipping: '門市自取' },
+          { storeId: 'costco', itemTitle: '棉柔舒適抽取式衛生紙 24包量販袋', price: 389, originalPrice: 419, histLow: 369, histAvg: 399, qty: 2640, specText: '110抽 × 24包 (2640抽)', promo: '黑鑽折30', shipping: '賣場自取' },
+          { storeId: 'coupang', itemTitle: '棉柔舒適抽取式衛生紙 72包整箱裝', price: 769, originalPrice: 990, histLow: 749, histAvg: 819, qty: 7920, specText: '110抽 × 72包箱購 (7920抽)', promo: '火箭速配', shipping: '滿490免運' },
+          { storeId: 'momo', itemTitle: '棉柔舒適抽取式衛生紙 72包整箱裝', price: 799, originalPrice: 1099, histLow: 759, histAvg: 819, qty: 7920, specText: '110抽 × 72包箱購 (7920抽)', promo: '箱購折價券', shipping: '免運' },
+          { storeId: 'shopee', itemTitle: '棉柔舒適抽取式衛生紙 72包整箱裝', price: 815, originalPrice: 990, histLow: 769, histAvg: 819, qty: 7920, specText: '110抽 × 72包箱購 (7920抽)', promo: '蝦皮直送', shipping: '免運券' },
+          { storeId: 'pchome', itemTitle: '棉柔舒適抽取式衛生紙 72包整箱裝', price: 839, originalPrice: 1099, histLow: 769, histAvg: 819, qty: 7920, specText: '110抽 × 72包箱購 (7920抽)', promo: '', shipping: '免運' }
+        ]
+      },
+      {
+        id: 'p3',
+        brand: 'Kirkland 科克蘭',
+        name: '三層抽取式衛生紙',
+        shortLabel: '🧻 科克蘭三層衛生紙',
+        searchKey: '科克蘭三層抽取式衛生紙120抽24包',
+        category: '紙品衛生',
+        baseUnit: '抽',
+        displayPer: 100,
+        offers: [
+          { storeId: 'costco', itemTitle: '三層抽取式衛生紙 24包原袋裝', price: 369, originalPrice: 389, histLow: 359, histAvg: 389, qty: 2880, specText: '120抽 × 24包 (2880抽)', promo: '賣場現購價', shipping: '賣場自取' },
+          { storeId: 'shopee', itemTitle: '三層抽取式衛生紙 24包代購組', price: 429, originalPrice: 460, histLow: 419, histAvg: 439, qty: 2880, specText: '120抽 × 24包 (2880抽)', promo: '代購含運', shipping: '免運' },
+          { storeId: 'momo', itemTitle: '三層抽取式衛生紙 24包宅配組', price: 449, originalPrice: 480, histLow: 419, histAvg: 439, qty: 2880, specText: '120抽 × 24包 (2880抽)', promo: '', shipping: '免運' }
+        ]
+      },
+      {
+        id: 'p4',
+        brand: 'P&G ARIEL',
+        name: '4D 抗菌洗衣膠囊',
+        shortLabel: '🫧 ARIEL 洗衣膠囊',
+        searchKey: 'ARIEL 4D抗菌洗衣膠囊',
+        category: '日用清潔',
+        baseUnit: '顆',
+        displayPer: 1,
+        offers: [
+          { storeId: 'pxmart', itemTitle: '4D 抗菌洗衣膠囊 31顆盒裝', price: 249, originalPrice: 299, histLow: 239, histAvg: 265, qty: 31, specText: '31顆 單盒', promo: '買一送一折算', shipping: '門市自取' },
+          { storeId: 'amart', itemTitle: '4D 抗菌洗衣膠囊 31顆盒裝', price: 255, originalPrice: 299, histLow: 239, histAvg: 265, qty: 31, specText: '31顆 單盒', promo: '', shipping: '門市自取' },
+          { storeId: 'watsons', itemTitle: '4D 抗菌洗衣膠囊 31顆盒裝', price: 259, originalPrice: 319, histLow: 245, histAvg: 265, qty: 31, specText: '31顆 單盒', promo: '週六88折', shipping: '門市自取' },
+          { storeId: 'cosmed', itemTitle: '4D 抗菌洗衣膠囊 31顆盒裝', price: 265, originalPrice: 319, histLow: 245, histAvg: 265, qty: 31, specText: '31顆 單盒', promo: '滿額折抵', shipping: '門市自取' },
+          { storeId: 'poya', itemTitle: '4D 抗菌洗衣膠囊 31顆盒裝', price: 269, originalPrice: 319, histLow: 245, histAvg: 265, qty: 31, specText: '31顆 單盒', promo: '', shipping: '門市自取' },
+          { storeId: 'coupang', itemTitle: '4D 抗菌洗衣膠囊 補充包120顆組', price: 649, originalPrice: 850, histLow: 639, histAvg: 699, qty: 120, specText: '60顆 × 2袋 (120顆)', promo: '火箭速配', shipping: '滿490免運' },
+          { storeId: 'shopee', itemTitle: '4D 抗菌洗衣膠囊 補充包120顆組', price: 679, originalPrice: 850, histLow: 649, histAvg: 699, qty: 120, specText: '60顆 × 2袋 (120顆)', promo: '官方旗艦店', shipping: '免運' },
+          { storeId: 'momo', itemTitle: '4D 抗菌洗衣膠囊 補充包120顆組', price: 699, originalPrice: 899, histLow: 649, histAvg: 699, qty: 120, specText: '60顆 × 2袋 (120顆)', promo: '官方直營箱購', shipping: '免運' },
+          { storeId: 'pchome', itemTitle: '4D 抗菌洗衣膠囊 補充包120顆組', price: 729, originalPrice: 899, histLow: 659, histAvg: 699, qty: 120, specText: '60顆 × 2袋 (120顆)', promo: '', shipping: '免運' }
+        ]
+      },
+      {
+        id: 'p5',
+        brand: '維他露 每朝健康',
+        name: '每朝健康 無糖綠茶',
+        shortLabel: '🍵 每朝健康綠茶',
+        searchKey: '每朝健康綠茶650ml',
+        category: '飲料零食',
+        baseUnit: 'ml',
+        displayPer: 100,
+        offers: [
+          { storeId: 'okmart', itemTitle: '每朝健康無糖綠茶 單瓶裝', price: 32, originalPrice: 35, histLow: 28, histAvg: 32, qty: 650, specText: '650ml 單瓶', promo: '會員價', shipping: '門市自取' },
+          { storeId: '711', itemTitle: '每朝健康無糖綠茶 單瓶裝', price: 35, originalPrice: 35, histLow: 28, histAvg: 32, qty: 650, specText: '650ml 單瓶', promo: '', shipping: '門市自取' },
+          { storeId: 'familymart', itemTitle: '每朝健康無糖綠茶 雙瓶促銷組', price: 56, originalPrice: 70, histLow: 55, histAvg: 59, qty: 1300, specText: '650ml × 2瓶 (1300ml)', promo: '兩件優惠', shipping: '門市自取' },
+          { storeId: 'hilife', itemTitle: '每朝健康無糖綠茶 雙瓶促銷組', price: 58, originalPrice: 70, histLow: 55, histAvg: 59, qty: 1300, specText: '650ml × 2瓶 (1300ml)', promo: '第二件6折', shipping: '門市自取' },
+          { storeId: 'pxmart', itemTitle: '每朝健康無糖綠茶 4入家庭組', price: 96, originalPrice: 112, histLow: 95, histAvg: 102, qty: 2600, specText: '650ml × 4瓶 (2600ml)', promo: '4入組特價', shipping: '門市自取' },
+          { storeId: 'simplemart', itemTitle: '每朝健康無糖綠茶 4入家庭組', price: 98, originalPrice: 112, histLow: 95, histAvg: 102, qty: 2600, specText: '650ml × 4瓶 (2600ml)', promo: '', shipping: '門市自取' },
+          { storeId: 'carrefour', itemTitle: '每朝健康無糖綠茶 4入家庭組', price: 99, originalPrice: 112, histLow: 95, histAvg: 102, qty: 2600, specText: '650ml × 4瓶 (2600ml)', promo: '', shipping: '門市自取' },
+          { storeId: 'coupang', itemTitle: '每朝健康無糖綠茶 24瓶整箱裝', price: 499, originalPrice: 680, histLow: 489, histAvg: 539, qty: 15600, specText: '650ml × 24瓶箱購 (15600ml)', promo: '限時閃購', shipping: '免運' },
+          { storeId: 'momo', itemTitle: '每朝健康無糖綠茶 24瓶整箱裝', price: 529, originalPrice: 680, histLow: 499, histAvg: 539, qty: 15600, specText: '650ml × 24瓶箱購 (15600ml)', promo: '箱購特惠', shipping: '免運' },
+          { storeId: 'pchome', itemTitle: '每朝健康無糖綠茶 24瓶整箱裝', price: 549, originalPrice: 680, histLow: 499, histAvg: 539, qty: 15600, specText: '650ml × 24瓶箱購 (15600ml)', promo: '', shipping: '免運' }
+        ]
+      },
+      {
+        id: 'p6',
+        brand: '桂格 Quaker',
+        name: '即沖大燕麥片',
+        shortLabel: '🥣 桂格大燕麥片',
+        searchKey: '桂格大燕麥片',
+        category: '糧油乾貨',
+        baseUnit: 'g',
+        displayPer: 100,
+        offers: [
+          { storeId: 'rtmart', itemTitle: '即沖大燕麥片 800g鐵罐裝', price: 135, originalPrice: 165, histLow: 132, histAvg: 145, qty: 800, specText: '800g 單罐', promo: '量販特價', shipping: '門市自取' },
+          { storeId: 'pxmart', itemTitle: '即沖大燕麥片 800g鐵罐裝', price: 139, originalPrice: 165, histLow: 132, histAvg: 145, qty: 800, specText: '800g 單罐', promo: '', shipping: '門市自取' },
+          { storeId: 'carrefour', itemTitle: '即沖大燕麥片 800g鐵罐裝', price: 145, originalPrice: 165, histLow: 132, histAvg: 145, qty: 800, specText: '800g 單罐', promo: '', shipping: '門市自取' },
+          { storeId: 'costco', itemTitle: '即沖大燕麥片 雙盒量販組', price: 299, originalPrice: 339, histLow: 289, histAvg: 325, qty: 2200, specText: '1100g × 2盒 (2200g)', promo: '特價折40', shipping: '賣場自取' },
+          { storeId: 'coupang', itemTitle: '即沖大燕麥片 800g×3罐組', price: 389, originalPrice: 495, histLow: 379, histAvg: 415, qty: 2400, specText: '800g × 3罐 (2400g)', promo: '火箭速配', shipping: '滿490免運' },
+          { storeId: 'momo', itemTitle: '即沖大燕麥片 800g×3罐組', price: 409, originalPrice: 495, histLow: 385, histAvg: 415, qty: 2400, specText: '800g × 3罐 (2400g)', promo: '品牌日', shipping: '滿490免運' },
+          { storeId: 'yahoo', itemTitle: '即沖大燕麥片 800g×3罐組', price: 425, originalPrice: 495, histLow: 385, histAvg: 415, qty: 2400, specText: '800g × 3罐 (2400g)', promo: '', shipping: '滿490免運' }
+        ]
+      },
+      {
+        id: 'p7',
+        brand: '統一企業',
+        name: '統一麵 肉燥風味袋裝',
+        shortLabel: '🍜 統一麵肉燥風味',
+        searchKey: '統一麵肉燥風味85g',
+        category: '糧油乾貨',
+        baseUnit: 'g',
+        displayPer: 100,
+        offers: [
+          { storeId: 'simplemart', itemTitle: '統一麵肉燥風味 5入家庭號', price: 80, originalPrice: 95, histLow: 78, histAvg: 85, qty: 425, specText: '85g × 5包 (425g)', promo: '會員優惠', shipping: '門市自取' },
+          { storeId: 'pxmart', itemTitle: '統一麵肉燥風味 5入家庭號', price: 82, originalPrice: 95, histLow: 78, histAvg: 85, qty: 425, specText: '85g × 5包 (425g)', promo: '檔期特價', shipping: '門市自取' },
+          { storeId: 'amart', itemTitle: '統一麵肉燥風味 5入家庭號', price: 83, originalPrice: 95, histLow: 78, histAvg: 85, qty: 425, specText: '85g × 5包 (425g)', promo: '', shipping: '門市自取' },
+          { storeId: 'carrefour', itemTitle: '統一麵肉燥風味 5入家庭號', price: 85, originalPrice: 95, histLow: 78, histAvg: 85, qty: 425, specText: '85g × 5包 (425g)', promo: '', shipping: '門市自取' },
+          { storeId: '711', itemTitle: '統一麵肉燥風味 5入家庭號', price: 95, originalPrice: 95, histLow: 82, histAvg: 88, qty: 425, specText: '85g × 5包 (425g)', promo: '', shipping: '門市自取' },
+          { storeId: 'shopee', itemTitle: '統一麵肉燥風味 5入袋裝', price: 79, originalPrice: 95, histLow: 76, histAvg: 85, qty: 425, specText: '85g × 5包 (425g)', promo: '蝦皮超市', shipping: '滿額免運' },
+          { storeId: 'pchome', itemTitle: '統一麵肉燥風味 20包整箱裝', price: 329, originalPrice: 380, histLow: 309, histAvg: 335, qty: 1700, specText: '85g × 20包箱購 (1700g)', promo: '箱購價', shipping: '滿490免運' }
+        ]
+      },
+      {
+        id: 'p8',
+        brand: 'COW 牛乳石鹼',
+        name: '無添加泡洗顏沐浴乳',
+        shortLabel: '🧴 牛乳石鹼沐浴乳',
+        searchKey: '牛乳石鹼無添加沐浴乳',
+        category: '個人護理',
+        baseUnit: 'ml',
+        displayPer: 100,
+        offers: [
+          { storeId: 'pxmart', itemTitle: '無添加沐浴乳 500ml瓶裝', price: 189, originalPrice: 240, histLow: 179, histAvg: 199, qty: 500, specText: '500ml 單瓶', promo: '會員特價', shipping: '門市自取' },
+          { storeId: 'poya', itemTitle: '無添加沐浴乳 500ml瓶裝', price: 199, originalPrice: 240, histLow: 179, histAvg: 199, qty: 500, specText: '500ml 單瓶', promo: '買2件再9折', shipping: '門市自取' },
+          { storeId: 'cosmed', itemTitle: '無添加沐浴乳 500ml瓶裝', price: 209, originalPrice: 240, histLow: 179, histAvg: 199, qty: 500, specText: '500ml 單瓶', promo: '點數加倍', shipping: '門市自取' },
+          { storeId: 'watsons', itemTitle: '無添加沐浴乳 500ml瓶裝', price: 215, originalPrice: 240, histLow: 179, histAvg: 199, qty: 500, specText: '500ml 單瓶', promo: '第二件5折', shipping: '門市自取' },
+          { storeId: 'coupang', itemTitle: '無添加沐浴乳 500ml單瓶裝', price: 165, originalPrice: 240, histLow: 159, histAvg: 185, qty: 500, specText: '500ml 單瓶', promo: '火箭速配', shipping: '滿490免運' },
+          { storeId: 'shopee', itemTitle: '無添加沐浴乳 500ml單瓶裝', price: 179, originalPrice: 240, histLow: 165, histAvg: 185, qty: 500, specText: '500ml 單瓶', promo: '官方直營', shipping: '免運券' },
+          { storeId: 'momo', itemTitle: '無添加沐浴乳 500ml×2入組', price: 349, originalPrice: 480, histLow: 329, histAvg: 369, qty: 1000, specText: '500ml × 2瓶 (1000ml)', promo: '雙入優惠', shipping: '滿490免運' }
+        ]
+      },
+      {
+        id: 'p9',
+        brand: '得意的一天',
+        name: '100% 義大利純橄欖油',
+        shortLabel: '🫒 得意的一天橄欖油',
+        searchKey: '得意的一天100%純橄欖油1000ml',
+        category: '糧油乾貨',
+        baseUnit: 'ml',
+        displayPer: 100,
+        offers: [
+          { storeId: 'rtmart', itemTitle: '100%純橄欖油 1L玻璃瓶裝', price: 365, originalPrice: 439, histLow: 359, histAvg: 389, qty: 1000, specText: '1000ml 單瓶', promo: '量販下殺', shipping: '門市自取' },
+          { storeId: 'pxmart', itemTitle: '100%純橄欖油 1L玻璃瓶裝', price: 369, originalPrice: 439, histLow: 359, histAvg: 389, qty: 1000, specText: '1000ml 單瓶', promo: '買1送1折算', shipping: '門市自取' },
+          { storeId: 'carrefour', itemTitle: '100%純橄欖油 1L玻璃瓶裝', price: 389, originalPrice: 439, histLow: 359, histAvg: 389, qty: 1000, specText: '1000ml 單瓶', promo: '', shipping: '門市自取' },
+          { storeId: 'costco', itemTitle: '100%純橄欖油 雙瓶量販組', price: 699, originalPrice: 749, histLow: 679, histAvg: 729, qty: 2000, specText: '1000ml × 2瓶 (2000ml)', promo: '賣場優惠', shipping: '賣場自取' },
+          { storeId: 'momo', itemTitle: '100%純橄欖油 1L×2瓶禮盒組', price: 688, originalPrice: 878, histLow: 668, histAvg: 738, qty: 2000, specText: '1000ml × 2瓶 (2000ml)', promo: '限時搶購', shipping: '免運' },
+          { storeId: 'pchome', itemTitle: '100%純橄欖油 1L×2瓶禮盒組', price: 738, originalPrice: 878, histLow: 668, histAvg: 728, qty: 2000, specText: '1000ml × 2瓶 (2000ml)', promo: '', shipping: '免運' }
+        ]
+      },
+      {
+        id: 'p10',
+        brand: '義美食品',
+        name: '無加糖厚濃豆漿',
+        shortLabel: '🥛 義美無加糖豆漿',
+        searchKey: '義美無加糖厚濃豆漿',
+        category: '生鮮乳品',
+        baseUnit: 'ml',
+        displayPer: 100,
+        offers: [
+          { storeId: 'pxmart', itemTitle: '無加糖厚濃豆漿 900ml新鮮屋', price: 45, originalPrice: 52, histLow: 44, histAvg: 48, qty: 900, specText: '900ml 單盒', promo: '檔期特價', shipping: '門市自取' },
+          { storeId: 'simplemart', itemTitle: '無加糖厚濃豆漿 900ml新鮮屋', price: 46, originalPrice: 52, histLow: 44, histAvg: 48, qty: 900, specText: '900ml 單盒', promo: '', shipping: '門市自取' },
+          { storeId: 'carrefour', itemTitle: '無加糖厚濃豆漿 900ml新鮮屋', price: 48, originalPrice: 52, histLow: 44, histAvg: 48, qty: 900, specText: '900ml 單盒', promo: '', shipping: '門市自取' },
+          { storeId: 'familymart', itemTitle: '無加糖厚濃豆漿 900ml新鮮屋', price: 49, originalPrice: 52, histLow: 45, histAvg: 48, qty: 900, specText: '900ml 單盒', promo: 'APP隨買', shipping: '門市自取' },
+          { storeId: '711', itemTitle: '無加糖厚濃豆漿 900ml新鮮屋', price: 52, originalPrice: 52, histLow: 45, histAvg: 48, qty: 900, specText: '900ml 單盒', promo: '', shipping: '門市自取' },
+          { storeId: 'costco', itemTitle: '無加糖厚濃豆漿 3入家庭組', price: 115, originalPrice: 129, histLow: 112, histAvg: 122, qty: 2700, specText: '900ml × 3盒 (2700ml)', promo: '好市多專賣', shipping: '賣場自取' },
+          { storeId: 'momo', itemTitle: '無加糖厚濃豆漿 低溫宅配6盒組', price: 279, originalPrice: 312, histLow: 269, histAvg: 295, qty: 5400, specText: '900ml × 6盒 (5400ml)', promo: '冷藏宅配組', shipping: '滿額免運' }
+        ]
+      },
+      {
+        id: 'p11',
+        brand: '橘子工坊',
+        name: '天然濃縮洗衣精補充包',
+        shortLabel: '🫧 橘子工坊洗衣精',
+        searchKey: '橘子工坊天然濃縮洗衣精補充包1500ml',
+        category: '日用清潔',
+        baseUnit: 'ml',
+        displayPer: 100,
+        offers: [
+          { storeId: 'pxmart', itemTitle: '天然濃縮洗衣精 1500ml補充包', price: 149, originalPrice: 189, histLow: 145, histAvg: 159, qty: 1500, specText: '1500ml 單包', promo: '福利卡優惠', shipping: '門市自取' },
+          { storeId: 'carrefour', itemTitle: '天然濃縮洗衣精 1500ml補充包', price: 155, originalPrice: 189, histLow: 145, histAvg: 159, qty: 1500, specText: '1500ml 單包', promo: '', shipping: '門市自取' },
+          { storeId: 'poya', itemTitle: '天然濃縮洗衣精 1500ml補充包', price: 159, originalPrice: 189, histLow: 145, histAvg: 159, qty: 1500, specText: '1500ml 單包', promo: '', shipping: '門市自取' },
+          { storeId: 'showba', itemTitle: '天然濃縮洗衣精 1500ml補充包', price: 162, originalPrice: 189, histLow: 145, histAvg: 159, qty: 1500, specText: '1500ml 單包', promo: '', shipping: '門市自取' },
+          { storeId: 'coupang', itemTitle: '天然濃縮洗衣精補充包 6包箱購組', price: 769, originalPrice: 1134, histLow: 749, histAvg: 819, qty: 9000, specText: '1500ml × 6包 (9000ml)', promo: '火箭速配', shipping: '免運' },
+          { storeId: 'momo', itemTitle: '天然濃縮洗衣精補充包 6包箱購組', price: 799, originalPrice: 1134, histLow: 759, histAvg: 819, qty: 9000, specText: '1500ml × 6包 (9000ml)', promo: '箱購下殺', shipping: '免運' },
+          { storeId: 'yahoo', itemTitle: '天然濃縮洗衣精補充包 6包箱購組', price: 849, originalPrice: 1134, histLow: 759, histAvg: 819, qty: 9000, specText: '1500ml × 6包 (9000ml)', promo: '', shipping: '免運' }
+        ]
+      },
+      {
+        id: 'p12',
+        brand: '蘇菲 Sofy',
+        name: '超熟睡夜用衛生棉 35cm',
+        shortLabel: '🌸 蘇菲夜用衛生棉',
+        searchKey: '蘇菲超熟睡衛生棉35cm',
+        category: '個人護理',
+        baseUnit: '片',
+        displayPer: 1,
+        offers: [
+          { storeId: 'pxmart', itemTitle: '超熟睡夜用衛生棉35cm 10片單包', price: 79, originalPrice: 109, histLow: 75, histAvg: 85, qty: 10, specText: '10片 單包', promo: '買1送1折算', shipping: '門市自取' },
+          { storeId: 'cosmed', itemTitle: '超熟睡夜用衛生棉35cm 10片單包', price: 84, originalPrice: 109, histLow: 75, histAvg: 85, qty: 10, specText: '10片 單包', promo: '滿488折50', shipping: '門市自取' },
+          { storeId: 'watsons', itemTitle: '超熟睡夜用衛生棉35cm 10片單包', price: 85, originalPrice: 109, histLow: 75, histAvg: 85, qty: 10, specText: '10片 單包', promo: '加1元多1件折算', shipping: '門市自取' },
+          { storeId: 'poya', itemTitle: '超熟睡夜用衛生棉35cm 10片單包', price: 89, originalPrice: 109, histLow: 75, histAvg: 85, qty: 10, specText: '10片 單包', promo: '', shipping: '門市自取' },
+          { storeId: 'shopee', itemTitle: '超熟睡夜用衛生棉35cm 6包量販組', price: 379, originalPrice: 545, histLow: 369, histAvg: 409, qty: 60, specText: '10片 × 6包 (60片)', promo: '官方旗艦店', shipping: '免運券' },
+          { storeId: 'momo', itemTitle: '超熟睡夜用衛生棉35cm 6包量販組', price: 399, originalPrice: 545, histLow: 369, histAvg: 409, qty: 60, specText: '10片 × 6包 (60片)', promo: '品牌週特價', shipping: '滿490免運' }
+        ]
+      }
+    ];
+
+    // =========================================================================
+    // 3. State, Historical Price Signal (#5) & Fresh Discount Rules
+    // =========================================================================
+    const STORAGE_KEY = 'tw_price_compare_custom_v1';
+    let customProducts = [];
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) customProducts = JSON.parse(saved);
+    } catch (e) {}
+
+    const state = {
+      selectedProductId: 'p1',
+      search: '',
+      sort: 'price_asc',
+      viewMode: 'split',
+      promoOnly: false,
+      goodBuyOnly: false,
+      includeTravelCost: false,
+      travelRatePerKm: 7.5,
+      locationKey: 'taipei_xinyi',
+      gpsCoords: null,
+      maxDistanceKm: 'all',
+      freshTimeOverride: 'now',
+      applyFreshDiscount: false,
+      selectedStores: new Set(STORES.map(s => s.id)),
+      basketProducts: new Set(['p1', 'p2', 'p4']),
+      lastUpdated: new Date()
+    };
+
+    function getHistoricalSignal(offer) {
+      const histLow = offer.histLow || Math.round(offer.price * 0.94);
+      const histAvg = offer.histAvg || (offer.originalPrice ? Math.round((offer.price + offer.originalPrice) / 2) : offer.price);
+
+      if (offer.price <= Math.round(histLow * 1.03) || offer.price <= Math.round(histAvg * 0.96)) {
+        const diffAvg = Math.max(1, histAvg - offer.price);
+        return {
+          level: 'good',
+          icon: '🟢',
+          label: `近期低點・值得買（低於均價 $${diffAvg}）`,
+          badgeClass: 'bg-[var(--success)]/15 text-[var(--success)] border border-[var(--success)]/40 font-semibold'
+        };
+      }
+      if (offer.price <= histAvg) {
+        return {
+          level: 'normal',
+          icon: '🟡',
+          label: `常態均價（歷史低點 $${histLow}）`,
+          badgeClass: 'bg-[var(--secondary)] text-[var(--muted-foreground)] border border-[var(--border)]'
+        };
+      }
+      const overAvg = offer.price - histAvg;
+      return {
+        level: 'high',
+        icon: '🔴',
+        label: `偏貴・建議等特價（高於均價 +$${overAvg}）`,
+        badgeClass: 'bg-[var(--error)]/15 text-[var(--error)] border border-[var(--error)]/40 font-medium'
+      };
+    }
+
+    const FRESH_DISCOUNT_RULES = [
+      { storeId: '711', label: '7-ELEVEN i珍食', windows: [{ start: 600, end: 1020, rate: 0.65, desc: '10:00-17:00 65折' }, { start: 1140, end: 1440, rate: 0.65, desc: '19:00-03:00 65折' }, { start: 0, end: 180, rate: 0.65, desc: '19:00-03:00 65折' }], nextHint: '10:00 / 19:00' },
+      { storeId: 'familymart', label: '全家 友善時光', windows: [{ start: 1020, end: 1440, rate: 0.70, desc: '17:00-00:00 7折' }], nextHint: '17:00 開始' },
+      { storeId: 'hilife', label: '萊爾富 惜福食堂', windows: [{ start: 1080, end: 1440, rate: 0.70, desc: '18:00-00:00 7折' }], nextHint: '18:00 開始' },
+      { storeId: 'okmart', label: 'OK超商 惜食光', windows: [{ start: 1080, end: 1320, rate: 0.65, desc: '18:00-22:00 65折起' }], nextHint: '18:00 開始' },
+      { storeId: 'pxmart', label: '全聯 惜食', windows: [{ start: 960, end: 1080, rate: 0.80, desc: '16:00-18:00 8折' }, { start: 1080, end: 1350, rate: 0.60, desc: '18:00後 6折' }], nextHint: '16:00 8折' },
+      { storeId: 'carrefour', label: '家樂福 珍食', windows: [{ start: 1140, end: 1380, rate: 0.70, desc: '19:00後 5~8折' }], nextHint: '19:00 開始' }
+    ];
+
+    function getActiveClockMinutes() {
+      if (state.freshTimeOverride !== 'now') {
+        const [hh, mm] = state.freshTimeOverride.split(':').map(Number);
+        return { hh, mm, total: hh * 60 + mm, isSim: true };
+      }
+      const d = new Date();
+      return { hh: d.getHours(), mm: d.getMinutes(), total: d.getHours() * 60 + d.getMinutes(), isSim: false };
+    }
+
+    function getFreshStatus(storeId) {
+      const rule = FRESH_DISCOUNT_RULES.find(r => r.storeId === storeId);
+      if (!rule) return null;
+      const { total } = getActiveClockMinutes();
+      const hit = rule.windows.find(w => total >= w.start && total < w.end);
+      return { ...rule, active: Boolean(hit), rate: hit ? hit.rate : 1, desc: hit ? hit.desc : rule.nextHint };
+    }
+
+    function renderFreshRadar() {
+      const { hh, mm, isSim } = getActiveClockMinutes();
+      const pad = n => String(n).padStart(2, '0');
+      document.getElementById('fresh-current-time').textContent = `${isSim ? '模擬' : '目前'} ${pad(hh)}:${pad(mm)}`;
+      document.getElementById('fresh-radar-badges').innerHTML = FRESH_DISCOUNT_RULES.map(rule => {
+        const st = getFreshStatus(rule.storeId);
+        return `
+          <div class="px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+            st.active ? 'bg-[var(--success)]/15 border-[var(--success)] font-medium' : 'bg-[var(--card)] border-[var(--card-border)] text-[var(--muted-foreground)]'
+          }">
+            <span>${st.active ? '🟢' : '⚪'}</span>
+            <span>${rule.label}</span>
+            <span class="tabular-nums opacity-85">${st.desc}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getAllProducts() { return [...customProducts, ...INITIAL_PRODUCTS]; }
+    function getCurrentCoords() { return state.gpsCoords || LOCATIONS[state.locationKey] || LOCATIONS.taipei_xinyi; }
+    function getStore(storeId) { return STORES.find(s => s.id === storeId) || { id: storeId, name: storeId, type: 'online', badge: '通路' }; }
+    function getStoreDistance(storeId) {
+      const { lat, lng } = getCurrentCoords();
+      return getStoreDistanceKm(getStore(storeId), lat, lng, state.locationKey);
+    }
+
+    function getOfferSourceLinks(storeId, product, offer) {
+      const cleanKey = (product.searchKey || `${product.brand || ''} ${product.name}`).replace(/[\/（）()]/g, ' ').replace(/\s+/g, ' ').trim();
+      const q = encodeURIComponent(cleanKey);
+      const store = getStore(storeId);
+      const area = encodeURIComponent((LOCATIONS[state.locationKey]?.name || '台北').replace(/\s+/g, ''));
+      const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.name)}+${area}`;
+      const googleProductUrl = `https://www.google.com/search?q=${encodeURIComponent(store.name + ' ' + cleanKey)}`;
+
+      const directSearchUrls = {
+        momo: `https://www.momoshop.com.tw/search/searchShop.jsp?keyword=${q}`,
+        pchome: `https://24h.pchome.com.tw/search/?q=${q}`,
+        coupang: `https://www.tw.coupang.com/np/search?q=${q}`,
+        yahoo: `https://tw.buy.yahoo.com/search/product?p=${q}`,
+        shopee: `https://shopee.tw/search?keyword=${q}`,
+        carrefour: `https://online.carrefour.com.tw/zh/search?q=${q}`,
+        costco: `https://www.costco.com.tw/search?text=${q}`,
+        watsons: `https://www.watsons.com.tw/search?text=${q}`,
+        cosmed: `https://shop.cosmed.com.tw/v2/Search?q=${q}`,
+        poya: `https://www.poyabuy.com.tw/v2/Search?q=${q}`
+      };
+
+      if (offer.url && offer.url.trim()) {
+        return {
+          primaryUrl: offer.url.trim(),
+          primaryLabel: '指定商品連結',
+          secondaryUrl: googleProductUrl,
+          secondaryLabel: 'Google 查商品',
+          mapUrl: store.type === 'physical' ? mapUrl : null
+        };
+      }
+
+      if (directSearchUrls[storeId]) {
+        return {
+          primaryUrl: directSearchUrls[storeId],
+          primaryLabel: `${store.name.split(' ')[0]}商品搜尋`,
+          secondaryUrl: googleProductUrl,
+          secondaryLabel: 'Google 查此品項',
+          mapUrl: store.type === 'physical' ? mapUrl : null
+        };
+      }
+
+      return {
+        primaryUrl: googleProductUrl,
+        primaryLabel: `查「${product.name}」報價`,
+        secondaryUrl: null,
+        secondaryLabel: null,
+        mapUrl: store.type === 'physical' ? mapUrl : null
+      };
+    }
+
+    function calcUnitPrice(price, qty, displayPer) {
+      if (!qty || qty <= 0) return Infinity;
+      return (price / qty) * displayPer;
+    }
+
+    function formatUnitPrice(val, baseUnit, displayPer) {
+      const decimals = val < 1 ? 3 : val < 10 ? 2 : 1;
+      const unitLabel = displayPer === 1 ? baseUnit : `${displayPer}${baseUnit}`;
+      return `NT$ ${val.toFixed(decimals)} / ${unitLabel}`;
+    }
+
+    function updateTimestampText() {
+      const d = state.lastUpdated;
+      const pad = n => String(n).padStart(2, '0');
+      document.getElementById('last-updated-text').textContent = `最後更新時間：${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    // =========================================================================
+    // 4. Render Product Query Pills & Store Filter Buttons
+    // =========================================================================
+    function renderProductQueryPills() {
+      const products = getAllProducts();
+      const container = document.getElementById('product-query-pills');
+      const isAll = state.selectedProductId === 'all' && !state.search.trim();
+
+      const pillsHtml = [
+        `<button type="button" data-product-id="all"
+          class="px-3 py-1.5 text-xs font-medium rounded-xl border transition cursor-pointer ${
+            isAll
+              ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]'
+              : 'bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border-[var(--border)]'
+          }">
+          📋 全部品項
+        </button>`,
+        ...products.map(p => {
+          const active = state.selectedProductId === p.id;
+          const label = p.shortLabel || `【${p.brand}】${p.name}`;
+          return `
+            <button type="button" data-product-id="${p.id}"
+              class="px-3 py-1.5 text-xs font-medium rounded-xl border transition cursor-pointer ${
+                active
+                  ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]'
+                  : 'bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border-[var(--border)]'
+              }">
+              ${label}
+            </button>
+          `;
+        })
+      ].join('');
+
+      container.innerHTML = pillsHtml;
+
+      container.querySelectorAll('[data-product-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pid = btn.dataset.productId;
+          state.selectedProductId = pid;
+          const searchInput = document.getElementById('search-input');
+          const clearBtn = document.getElementById('btn-clear-search');
+          if (pid === 'all') {
+            state.search = '';
+            searchInput.value = '';
+            clearBtn.classList.add('hidden');
+          } else {
+            const prod = getAllProducts().find(p => p.id === pid);
+            state.search = '';
+            searchInput.value = prod ? `${prod.brand} ${prod.name}` : '';
+            clearBtn.classList.remove('hidden');
+          }
+          renderProductQueryPills();
+          renderFlatOfferLists();
+        });
+      });
+    }
+
+    function renderStoreButtons() {
+      const physicalEl = document.getElementById('physical-stores');
+      const onlineEl = document.getElementById('online-stores');
+
+      const physicalStores = STORES.filter(s => s.type === 'physical')
+        .map(s => ({ ...s, distKm: getStoreDistance(s.id) }))
+        .sort((a, b) => a.distKm - b.distKm);
+
+      physicalEl.innerHTML = physicalStores.map(store => {
+        const active = state.selectedStores.has(store.id);
+        const overDist = state.maxDistanceKm !== 'all' && store.distKm > parseFloat(state.maxDistanceKm);
+        return `
+          <button type="button" data-store-id="${store.id}"
+            class="px-2.5 py-1 text-xs rounded-lg border transition cursor-pointer flex items-center gap-1 ${overDist ? 'opacity-40 ' : ''}${
+              active
+                ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] font-medium'
+                : 'bg-[var(--background)] text-[var(--muted-foreground)] border-[var(--border)] hover:text-[var(--foreground)]'
+            }">
+            <span>${store.name}</span>
+            <span class="tabular-nums opacity-75">${formatDistance(store.distKm)}</span>
+          </button>
+        `;
+      }).join('');
+
+      onlineEl.innerHTML = STORES.filter(s => s.type === 'online').map(store => {
+        const active = state.selectedStores.has(store.id);
+        return `
+          <button type="button" data-store-id="${store.id}"
+            class="px-2.5 py-1 text-xs rounded-lg border transition cursor-pointer ${
+              active
+                ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] font-medium'
+                : 'bg-[var(--background)] text-[var(--muted-foreground)] border-[var(--border)] hover:text-[var(--foreground)]'
+            }">
+            ${store.name}
+          </button>
+        `;
+      }).join('');
+
+      document.querySelectorAll('[data-store-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.storeId;
+          if (state.selectedStores.has(id)) state.selectedStores.delete(id);
+          else state.selectedStores.add(id);
+          renderStoreButtons();
+          renderFlatOfferLists();
+        });
+      });
+
+      document.getElementById('kpi-stores').textContent = state.selectedStores.size;
+    }
+
+    // =========================================================================
+    // 5. Flatten All Matching Items & Sort Directly by Price Order
+    // =========================================================================
+    function getFlatSortedOffers() {
+      const q = state.search.trim().toLowerCase();
+      const maxKm = state.maxDistanceKm === 'all' ? Infinity : parseFloat(state.maxDistanceKm);
+      const physicalOffers = [];
+      const onlineOffers = [];
+
+      for (const product of getAllProducts()) {
+        if (state.selectedProductId !== 'all') {
+          if (product.id !== state.selectedProductId) continue;
+        } else if (q) {
+          const hay = `${product.brand || ''} ${product.name} ${product.category} ${product.offers.map(o => (o.itemTitle || '') + ' ' + getStore(o.storeId).name + ' ' + o.specText).join(' ')}`.toLowerCase();
+          if (!hay.includes(q)) continue;
+        }
+
+        for (const o of product.offers) {
+          if (!state.selectedStores.has(o.storeId)) continue;
+          if (state.promoOnly && !(o.promo && o.promo.length > 0) && !(o.originalPrice && o.originalPrice > o.price)) continue;
+
+          const store = getStore(o.storeId);
+          const distKm = getStoreDistance(o.storeId);
+          if (store.type === 'physical' && distKm > maxKm) continue;
+
+          const freshInfo = product.category === '生鮮乳品' ? getFreshStatus(o.storeId) : null;
+          let effPrice = o.price;
+          let effOrig = o.originalPrice;
+          let effPromo = o.promo || '';
+          if (state.applyFreshDiscount && freshInfo && freshInfo.active) {
+            effOrig = effOrig || o.price;
+            effPrice = Math.round(o.price * freshInfo.rate);
+            effPromo = `⏰ 惜食試算 ${Math.round(freshInfo.rate * 100)}折`;
+          } else if (freshInfo && freshInfo.active) {
+            effPromo = effPromo ? `${effPromo} · ⏰惜食時段` : `⏰ 惜食時段`;
+          }
+
+          const travelCost = store.type === 'physical' ? calcRoundTripCost(distKm) : 0;
+          const sortPrice = (store.type === 'physical' && state.includeTravelCost) ? (effPrice + travelCost) : effPrice;
+          const baseUnitPrice = calcUnitPrice(effPrice, o.qty, product.displayPer);
+          const sortUnitPrice = calcUnitPrice(sortPrice, o.qty, product.displayPer);
+
+          const histSignal = getHistoricalSignal({ ...o, price: effPrice });
+          if (state.goodBuyOnly && histSignal.level !== 'good') continue;
+
+          const adjustedOffer = {
+            ...o,
+            offerKey: `${product.id}__${o.storeId}`,
+            product,
+            store,
+            distKm,
+            travelCost,
+            branchName: store.type === 'physical' ? getBranchName(store, state.locationKey) : '',
+            price: effPrice,
+            sortPrice,
+            originalPrice: effOrig,
+            promo: effPromo,
+            unitPrice: baseUnitPrice,
+            sortUnitPrice,
+            histSignal
+          };
+
+          if (store.type === 'physical') physicalOffers.push(adjustedOffer);
+          else onlineOffers.push(adjustedOffer);
+        }
+      }
+
+      const sorter = (a, b) => {
+        if (state.sort === 'price_asc') return a.sortPrice - b.sortPrice || a.sortUnitPrice - b.sortUnitPrice;
+        if (state.sort === 'price_desc') return b.sortPrice - a.sortPrice || a.sortUnitPrice - b.sortUnitPrice;
+        if (state.sort === 'unit_asc') return a.sortUnitPrice - b.sortUnitPrice || a.sortPrice - b.sortPrice;
+        if (state.sort === 'dist_asc') {
+          const da = a.distKm === null ? Infinity : a.distKm;
+          const db = b.distKm === null ? Infinity : b.distKm;
+          return da - db || a.sortPrice - b.sortPrice;
+        }
+        return a.sortPrice - b.sortPrice;
+      };
+
+      physicalOffers.sort(sorter);
+      onlineOffers.sort(sorter);
+
+      return { physicalOffers, onlineOffers };
+    }
+
+    function renderOfferRow(item, idx, minPriceInZone, minUnitInZone) {
+      const { product, store, histSignal } = item;
+      const isCheapestTotal = item.sortPrice === minPriceInZone;
+      const isCheapestUnit = Math.abs(item.sortUnitPrice - minUnitInZone) < 0.001;
+      const links = getOfferSourceLinks(item.storeId, product, item);
+      const fullItemTitle = item.itemTitle || product.name;
+      const inBasket = state.basketProducts.has(product.id);
+      const showTravelAdded = store.type === 'physical' && state.includeTravelCost;
+
+      return `
+        <div class="p-4 sm:px-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs hover:bg-[var(--secondary)]/20 transition">
+          <div class="flex items-start gap-3 min-w-0 flex-1">
+            <div class="w-7 h-7 rounded-lg flex items-center justify-center font-mono font-bold tabular-nums shrink-0 ${
+              idx === 0 ? 'bg-[var(--success)] text-white' : 'bg-[var(--secondary)] text-[var(--muted-foreground)]'
+            }">
+              ${String(idx + 1).padStart(2, '0')}
+            </div>
+
+            <div class="space-y-1.5 min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="font-bold text-sm sm:text-[15px] ${idx === 0 ? 'text-[var(--success)]' : 'text-[var(--foreground)]'}">
+                  【${product.brand || '品牌'}】${fullItemTitle}
+                </span>
+                <span class="px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--foreground)] font-medium">
+                  ${item.specText}
+                </span>
+                <span class="px-2 py-0.5 rounded-full text-[11px] ${histSignal.badgeClass}">
+                  ${histSignal.icon} ${histSignal.label}
+                </span>
+                ${isCheapestTotal ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[var(--success)] text-white">💰 最低價</span>` : ''}
+                ${isCheapestUnit && !isCheapestTotal ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[var(--primary)] text-[var(--primary-foreground)]">⚖️ 最低單價</span>` : ''}
+                ${item.promo ? `<span class="px-1.5 py-0.5 rounded border border-[var(--border)] text-[var(--foreground)] font-medium">${item.promo}</span>` : ''}
+              </div>
+
+              <div class="text-[var(--muted-foreground)] flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span>
+                  ${store.type === 'physical' ? '🏪 實體門市：' : '🛒 網購平台：'}<strong class="text-[var(--foreground)] font-semibold">${store.name}</strong>
+                </span>
+                <span>
+                  ${item.distKm !== null
+                    ? `📍 距離 ${formatDistance(item.distKm)}（${item.branchName}） · <span class="${showTravelAdded ? 'text-[var(--primary)] font-semibold' : ''}">🚗 來回路程約 +NT$ ${item.travelCost}</span>`
+                    : `📦 ${item.shipping || '網購配送'}`
+                  }
+                </span>
+                <a href="${links.primaryUrl}" target="_blank" rel="noopener noreferrer"
+                  class="text-[var(--link)] font-medium hover:underline">
+                  ${links.primaryLabel} ↗
+                </a>
+                ${links.secondaryUrl ? `
+                  <a href="${links.secondaryUrl}" target="_blank" rel="noopener noreferrer"
+                    class="text-[var(--link)] hover:underline">
+                    ${links.secondaryLabel} ↗
+                  </a>
+                ` : ''}
+                ${links.mapUrl ? `
+                  <a href="${links.mapUrl}" target="_blank" rel="noopener noreferrer"
+                    class="hover:text-[var(--foreground)] hover:underline">
+                    門市地圖 ↗
+                  </a>
+                ` : ''}
+              </div>
+            </div>
+          </div>
+
+          <div class="flex sm:flex-col items-center sm:items-end justify-between gap-2 pl-10 sm:pl-0 shrink-0">
+            <div class="sm:text-right tabular-nums">
+              ${showTravelAdded ? `
+                <div class="flex items-baseline sm:justify-end gap-1.5">
+                  <span class="text-xs text-[var(--muted-foreground)]">含路程</span>
+                  <span class="text-base sm:text-lg font-extrabold ${idx === 0 ? 'text-[var(--success)]' : 'text-[var(--foreground)]'}">
+                    NT$ ${item.sortPrice}
+                  </span>
+                </div>
+                <div class="text-[11px] text-[var(--muted-foreground)]">
+                  店內價 NT$ ${item.price} + 來回路程 $${item.travelCost}
+                </div>
+              ` : `
+                <div class="flex items-baseline sm:justify-end gap-1.5">
+                  <span class="text-base sm:text-lg font-extrabold ${idx === 0 ? 'text-[var(--success)]' : 'text-[var(--foreground)]'}">
+                    NT$ ${item.price}
+                  </span>
+                  ${item.originalPrice && item.originalPrice > item.price ? `
+                    <span class="text-[11px] text-[var(--muted-foreground)] line-through">NT$ ${item.originalPrice}</span>
+                  ` : ''}
+                </div>
+              `}
+              <div class="text-[11px] ${isCheapestUnit ? 'text-[var(--success)] font-semibold' : 'text-[var(--muted-foreground)]'}">
+                ${showTravelAdded ? '含路程單價：' : '單位價：'}${formatUnitPrice(item.sortUnitPrice, product.baseUnit, product.displayPer)}
+              </div>
+            </div>
+
+            <button type="button" data-basket-product="${product.id}"
+              class="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition cursor-pointer ${
+                inBasket
+                  ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]'
+                  : 'bg-[var(--background)] hover:bg-[var(--secondary)] border-[var(--border)]'
+              }">
+              ${inBasket ? '✓ 已在同店比價籃' : '+ 加入比價籃'}
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderFlatOfferLists() {
+      const sectionPhys = document.getElementById('section-physical');
+      const sectionOnl = document.getElementById('section-online');
+      const listPhys = document.getElementById('physical-flat-list');
+      const listOnl = document.getElementById('online-flat-list');
+      const emptyEl = document.getElementById('empty-state');
+      const summaryEl = document.getElementById('current-query-summary');
+      const physTitleEl = document.getElementById('physical-zone-title');
+
+      const { physicalOffers, onlineOffers } = getFlatSortedOffers();
+
+      physTitleEl.textContent = state.includeTravelCost
+        ? '🏪 實體門市品項（已計入來回路程成本排序）'
+        : '🏪 實體門市品項（依店內價錢順序排列）';
+
+      const activeProd = state.selectedProductId !== 'all'
+        ? getAllProducts().find(p => p.id === state.selectedProductId)
+        : null;
+      const queryTitle = activeProd
+        ? `目前查詢：【${activeProd.brand}】${activeProd.name}`
+        : (state.search.trim() ? `搜尋「${state.search.trim()}」` : '目前顯示：全部產品品項');
+      summaryEl.textContent = `${queryTitle}（實體 ${physicalOffers.length} 筆 · 網購 ${onlineOffers.length} 筆）`;
+
+      document.getElementById('physical-count-badge').textContent = `共 ${physicalOffers.length} 筆實體店品項`;
+      document.getElementById('online-count-badge').textContent = `共 ${onlineOffers.length} 筆網購品項`;
+
+      const minPhysPrice = physicalOffers.length ? Math.min(...physicalOffers.map(o => o.sortPrice)) : Infinity;
+      const minPhysUnit = physicalOffers.length ? Math.min(...physicalOffers.map(o => o.sortUnitPrice)) : Infinity;
+      const minOnlPrice = onlineOffers.length ? Math.min(...onlineOffers.map(o => o.sortPrice)) : Infinity;
+      const minOnlUnit = onlineOffers.length ? Math.min(...onlineOffers.map(o => o.sortUnitPrice)) : Infinity;
+
+      listPhys.innerHTML = physicalOffers.map((item, idx) => renderOfferRow(item, idx, minPhysPrice, minPhysUnit)).join('');
+      listOnl.innerHTML = onlineOffers.map((item, idx) => renderOfferRow(item, idx, minOnlPrice, minOnlUnit)).join('');
+
+      const showPhys = state.viewMode !== 'online_only' && physicalOffers.length > 0;
+      const showOnl = state.viewMode !== 'physical_only' && onlineOffers.length > 0;
+
+      sectionPhys.classList.toggle('hidden', !showPhys);
+      sectionOnl.classList.toggle('hidden', !showOnl);
+      emptyEl.classList.toggle('hidden', showPhys || showOnl);
+
+      document.getElementById('kpi-basket-count').textContent = state.basketProducts.size;
+
+      document.querySelectorAll('[data-basket-product]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pid = btn.dataset.basketProduct;
+          if (state.basketProducts.has(pid)) state.basketProducts.delete(pid);
+          else state.basketProducts.add(pid);
+          document.getElementById('kpi-basket-count').textContent = state.basketProducts.size;
+          renderFlatOfferLists();
+        });
+      });
+    }
+
+    // =========================================================================
+    // 6. Feature #7: Basket Multi-Store Split vs. Single-Store One-Stop Optimizer
+    // =========================================================================
+    function renderBasketModal() {
+      const container = document.getElementById('basket-content');
+      const allProducts = getAllProducts();
+      const selectedProds = allProducts.filter(p => state.basketProducts.has(p.id));
+
+      const quickPickerHtml = `
+        <div class="p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] space-y-2">
+          <div class="font-semibold text-[var(--muted-foreground)]">點選要一起採買的產品（自動比較「拆單去各家買」與「同一家店一次買齊」）：</div>
+          <div class="flex flex-wrap gap-1.5">
+            ${allProducts.map(p => {
+              const active = state.basketProducts.has(p.id);
+              return `
+                <button type="button" data-modal-pick="${p.id}"
+                  class="px-2.5 py-1 rounded-lg border transition cursor-pointer ${
+                    active
+                      ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] font-medium'
+                      : 'bg-[var(--card)] text-[var(--muted-foreground)] border-[var(--border)] hover:text-[var(--foreground)]'
+                  }">
+                  ${active ? '✓ ' : '+ '}${p.shortLabel || p.name}
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+
+      if (selectedProds.length === 0) {
+        container.innerHTML = `
+          ${quickPickerHtml}
+          <div class="py-10 text-center text-[var(--muted-foreground)]">請在上方點選至少 1～2 項要採買的產品進行同店一次買齊分析。</div>
+        `;
+        bindModalPickers();
+        return;
+      }
+
+      let splitProductTotal = 0;
+      const splitStoresVisited = new Set();
+      const splitBreakdown = [];
+
+      for (const p of selectedProds) {
+        const physOffers = p.offers
+          .filter(o => getStore(o.storeId).type === 'physical')
+          .map(o => ({ ...o, store: getStore(o.storeId), distKm: getStoreDistance(o.storeId) }))
+          .sort((a, b) => a.price - b.price);
+
+        const best = physOffers[0] || p.offers.map(o => ({ ...o, store: getStore(o.storeId), distKm: null })).sort((a, b) => a.price - b.price)[0];
+        if (best) {
+          splitProductTotal += best.price;
+          splitStoresVisited.add(best.storeId);
+          splitBreakdown.push({ product: p, offer: best });
+        }
+      }
+
+      let splitTravelCost = 0;
+      splitStoresVisited.forEach(storeId => {
+        const st = getStore(storeId);
+        if (st.type === 'physical') splitTravelCost += calcRoundTripCost(getStoreDistance(storeId));
+      });
+      const splitGrandTotalWithTravel = splitProductTotal + splitTravelCost;
+
+      const singleStoreOptions = STORES.map(store => {
+        const matchedItems = [];
+        const missingProds = [];
+        let storeProductTotal = 0;
+
+        for (const p of selectedProds) {
+          const found = p.offers.find(o => o.storeId === store.id);
+          if (found) {
+            matchedItems.push({ product: p, offer: found });
+            storeProductTotal += found.price;
+          } else {
+            missingProds.push(p);
+          }
+        }
+
+        const distKm = store.type === 'physical' ? getStoreDistance(store.id) : null;
+        const travelCost = store.type === 'physical' ? calcRoundTripCost(distKm) : 0;
+        return {
+          store,
+          distKm,
+          travelCost,
+          matchedCount: matchedItems.length,
+          totalNeeded: selectedProds.length,
+          isComplete: matchedItems.length === selectedProds.length,
+          matchedItems,
+          missingProds,
+          storeProductTotal,
+          grandTotalWithTravel: storeProductTotal + travelCost
+        };
+      })
+      .filter(opt => opt.matchedCount > 0)
+      .sort((a, b) => {
+        if (b.matchedCount !== a.matchedCount) return b.matchedCount - a.matchedCount;
+        return a.grandTotalWithTravel - b.grandTotalWithTravel;
+      });
+
+      const bestCompletePhys = singleStoreOptions.find(o => o.isComplete && o.store.type === 'physical') || singleStoreOptions[0];
+      const priceDiffProductOnly = bestCompletePhys ? (bestCompletePhys.storeProductTotal - splitProductTotal) : 0;
+      const netDiffWithTravel = bestCompletePhys ? (bestCompletePhys.grandTotalWithTravel - splitGrandTotalWithTravel) : 0;
+
+      let smartVerdictHtml = '';
+      if (bestCompletePhys && bestCompletePhys.isComplete) {
+        if (splitStoresVisited.size <= 1) {
+          smartVerdictHtml = `💡 <strong>智慧採買建議：</strong>您選的 ${selectedProds.length} 項商品最低價剛好都在「<strong>${bestCompletePhys.store.name}</strong>」，直接去該店一次買齊即可！`;
+        } else if (netDiffWithTravel <= 0) {
+          smartVerdictHtml = `💡 <strong>智慧採買建議：去「${bestCompletePhys.store.name}」同一家店一次買齊最划算！</strong>雖然拆單跑 ${splitStoresVisited.size} 家店商品價差 NT$ ${priceDiffProductOnly}，但加計多跑店家的來回路程成本（NT$ ${splitTravelCost} vs. 單一店家 NT$ ${bestCompletePhys.travelCost}）後，<strong>同一家店一次買齊反而淨省 NT$ ${Math.abs(netDiffWithTravel)}</strong>，還省下奔波時間！`;
+        } else if (priceDiffProductOnly <= 25) {
+          smartVerdictHtml = `💡 <strong>智慧採買建議：建議直接去「${bestCompletePhys.store.name}」一次買齊！</strong>分頭跑 ${splitStoresVisited.size} 家店只省下商品價差 NT$ ${priceDiffProductOnly}（加計路程後僅差 NT$ ${netDiffWithTravel}），不值得為了幾塊錢多跑 ${splitStoresVisited.size - 1} 家店。`;
+        } else {
+          smartVerdictHtml = `💡 <strong>智慧採買建議：拆單採買可省下 NT$ ${priceDiffProductOnly}！</strong>扣除多跑店家的路程成本後仍可淨省 NT$ ${Math.abs(netDiffWithTravel)}，若順路可分開採買。`;
+        }
+      }
+
+      container.innerHTML = `
+        ${quickPickerHtml}
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-sm">方案 A：分開去各家最低價買</span>
+              <span class="px-2 py-0.5 rounded-full bg-[var(--secondary)] text-[11px] font-medium">需跑 ${splitStoresVisited.size} 家店</span>
+            </div>
+            <div class="space-y-1 text-[var(--muted-foreground)]">
+              ${splitBreakdown.map(b => `
+                <div class="flex justify-between gap-2">
+                  <span class="truncate">【${b.product.brand}】${b.product.name} · <strong class="text-[var(--foreground)]">${b.offer.store.name}</strong></span>
+                  <span class="tabular-nums font-medium text-[var(--foreground)] shrink-0">NT$ ${b.offer.price}</span>
+                </div>
+              `).join('')}
+            </div>
+            <div class="pt-2 border-t border-[var(--card-border)] space-y-0.5 tabular-nums">
+              <div class="flex justify-between">
+                <span class="text-[var(--muted-foreground)]">商品小計：</span>
+                <span class="font-bold">NT$ ${splitProductTotal}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-[var(--muted-foreground)]">🚗 跑 ${splitStoresVisited.size} 家店來回路程成本：</span>
+                <span>+ NT$ ${splitTravelCost}</span>
+              </div>
+              <div class="flex justify-between text-sm font-extrabold pt-1">
+                <span>含路程實質總花費：</span>
+                <span>NT$ ${splitGrandTotalWithTravel}</span>
+              </div>
+            </div>
+          </div>
+
+          ${bestCompletePhys ? `
+            <div class="p-4 rounded-xl bg-[var(--success)]/10 border-2 border-[var(--success)] space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-sm text-[var(--success)]">方案 B：同一家店一次買齊首選</span>
+                <span class="px-2 py-0.5 rounded-full bg-[var(--success)] text-white text-[11px] font-semibold">
+                  ${bestCompletePhys.store.name} (${bestCompletePhys.matchedCount}/${bestCompletePhys.totalNeeded}項)
+                </span>
+              </div>
+              <div class="space-y-1 text-[var(--muted-foreground)]">
+                ${bestCompletePhys.matchedItems.map(m => `
+                  <div class="flex justify-between gap-2">
+                    <span class="truncate">【${m.product.brand}】${m.product.name}</span>
+                    <span class="tabular-nums font-medium text-[var(--foreground)] shrink-0">NT$ ${m.offer.price}</span>
+                  </div>
+                `).join('')}
+              </div>
+              <div class="pt-2 border-t border-[var(--card-border)] space-y-0.5 tabular-nums">
+                <div class="flex justify-between">
+                  <span class="text-[var(--muted-foreground)]">同店商品小計（與拆單差 +$${priceDiffProductOnly}）：</span>
+                  <span class="font-bold">NT$ ${bestCompletePhys.storeProductTotal}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-[var(--muted-foreground)]">🚗 單一店家來回路程成本：</span>
+                  <span>+ NT$ ${bestCompletePhys.travelCost}</span>
+                </div>
+                <div class="flex justify-between text-sm font-extrabold text-[var(--success)] pt-1">
+                  <span>含路程實質總花費：</span>
+                  <span>NT$ ${bestCompletePhys.grandTotalWithTravel}</span>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+
+        ${smartVerdictHtml ? `
+          <div class="p-3.5 rounded-xl bg-[var(--secondary)] border border-[var(--border)] leading-relaxed">
+            ${smartVerdictHtml}
+          </div>
+        ` : ''}
+
+        <div class="space-y-2">
+          <div class="font-bold">各通路「同一家店一次買齊」完整對比排行：</div>
+          <div class="divide-y divide-[var(--card-border)] border border-[var(--border)] rounded-xl overflow-hidden bg-[var(--background)]">
+            ${singleStoreOptions.slice(0, 8).map((opt, i) => {
+              const diffVsSplit = opt.storeProductTotal - splitProductTotal;
+              return `
+                <div class="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div class="space-y-0.5">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      <span class="font-mono text-[var(--muted-foreground)]">#${i + 1}</span>
+                      <span class="font-bold text-sm">${opt.store.name}</span>
+                      <span class="px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                        opt.isComplete ? 'bg-[var(--success)]/15 text-[var(--success)]' : 'bg-[var(--secondary)] text-[var(--muted-foreground)]'
+                      }">
+                        ${opt.isComplete ? `✅ 可全部買齊 (${opt.matchedCount}/${opt.totalNeeded})` : `可買 ${opt.matchedCount}/${opt.totalNeeded} 項`}
+                      </span>
+                      ${opt.distKm !== null ? `<span class="text-[var(--muted-foreground)]">📍 ${formatDistance(opt.distKm)} · 🚗 來回 +$${opt.travelCost}</span>` : '<span class="text-[var(--muted-foreground)]">📦 網購平台</span>'}
+                    </div>
+                    <div class="text-[11px] text-[var(--muted-foreground)]">
+                      ${opt.matchedItems.map(m => `${m.product.brand}${m.product.name} ($${m.offer.price})`).join(' ＋ ')}
+                    </div>
+                  </div>
+                  <div class="sm:text-right tabular-nums shrink-0">
+                    <div class="font-bold text-sm">
+                      店內總計 NT$ ${opt.storeProductTotal}
+                      ${opt.isComplete ? `<span class="text-[11px] font-normal text-[var(--muted-foreground)]">（比拆單 +$${diffVsSplit}）</span>` : ''}
+                    </div>
+                    ${opt.distKm !== null ? `<div class="text-[11px] text-[var(--muted-foreground)]">含來回路程實質：NT$ ${opt.grandTotalWithTravel}</div>` : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+
+      bindModalPickers();
+    }
+
+    function bindModalPickers() {
+      document.querySelectorAll('[data-modal-pick]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pid = btn.dataset.modalPick;
+          if (state.basketProducts.has(pid)) state.basketProducts.delete(pid);
+          else state.basketProducts.add(pid);
+          document.getElementById('kpi-basket-count').textContent = state.basketProducts.size;
+          renderBasketModal();
+          renderFlatOfferLists();
+        });
+      });
+    }
+
+    // =========================================================================
+    // 7. Calculator & Custom Product
+    // =========================================================================
+    function applyPromoRule(price, qty, promo) {
+      if (price <= 0 || qty <= 0) return { effPrice: 0, effQty: 0, note: '' };
+      switch (promo) {
+        case 'bogo': return { effPrice: price, effQty: qty * 2, note: `買1送1：需買2組，實付 NT$ ${price}` };
+        case 'plus1': return { effPrice: price + 1, effQty: qty * 2, note: `加1元多1件：需買2組，實付 NT$ ${price + 1}` };
+        case 'second_50': return { effPrice: +(price * 1.5).toFixed(1), effQty: qty * 2, note: `第2件5折：需買2組，實付 NT$ ${(price * 1.5).toFixed(0)}` };
+        case 'second_60': return { effPrice: +(price * 1.6).toFixed(1), effQty: qty * 2, note: `第2件6折：需買2組，實付 NT$ ${(price * 1.6).toFixed(0)}` };
+        case 'off_88': return { effPrice: +(price * 0.88).toFixed(1), effQty: qty, note: `88折後：單組實付 NT$ ${(price * 0.88).toFixed(0)}` };
+        case '488_50': {
+          const sets = Math.max(1, Math.ceil(488 / price));
+          const rawTotal = sets * price;
+          const netTotal = rawTotal >= 488 ? rawTotal - 50 : rawTotal;
+          return { effPrice: netTotal, effQty: qty * sets, note: `滿488折50：需買${sets}組，實付 NT$ ${netTotal}` };
+        }
+        default: return { effPrice: price, effQty: qty, note: `原價：單組實付 NT$ ${price}` };
+      }
+    }
+
+    function updateCalculator() {
+      const resA = applyPromoRule(
+        parseFloat(document.getElementById('calc-a-price').value) || 0,
+        (parseFloat(document.getElementById('calc-a-qty').value) || 0) * (parseFloat(document.getElementById('calc-a-pack').value) || 1),
+        document.getElementById('calc-a-promo').value
+      );
+      const resB = applyPromoRule(
+        parseFloat(document.getElementById('calc-b-price').value) || 0,
+        (parseFloat(document.getElementById('calc-b-qty').value) || 0) * (parseFloat(document.getElementById('calc-b-pack').value) || 1),
+        document.getElementById('calc-b-promo').value
+      );
+      const aUnit = resA.effQty > 0 ? resA.effPrice / resA.effQty : 0;
+      const bUnit = resB.effQty > 0 ? resB.effPrice / resB.effQty : 0;
+
+      document.getElementById('calc-a-result').textContent = aUnit > 0 ? `NT$ ${(aUnit * 100).toFixed(2)} / 100單位` : '-';
+      document.getElementById('calc-a-note').textContent = resA.note;
+      document.getElementById('calc-b-result').textContent = bUnit > 0 ? `NT$ ${(bUnit * 100).toFixed(2)} / 100單位` : '-';
+      document.getElementById('calc-b-note').textContent = resB.note;
+
+      const verdictEl = document.getElementById('calc-verdict');
+      if (aUnit > 0 && bUnit > 0) {
+        if (Math.abs(aUnit - bUnit) < 0.0001) verdictEl.textContent = '兩個方案的折後單位價錢完全相同！';
+        else if (aUnit < bUnit) verdictEl.textContent = `✅ 方案 A 較划算！折後單位價錢便宜約 ${Math.round(((bUnit - aUnit) / bUnit) * 100)}%`;
+        else verdictEl.textContent = `✅ 方案 B 較划算！折後單位價錢便宜約 ${Math.round(((aUnit - bUnit) / aUnit) * 100)}%`;
+      } else {
+        verdictEl.textContent = '請輸入大於 0 的價格與容量進行比較';
+      }
+    }
+
+    function addCustomOfferRow(defaultStoreId = 'pxmart') {
+      const container = document.getElementById('custom-offers-container');
+      const row = document.createElement('div');
+      row.className = 'grid grid-cols-12 gap-2 items-center p-2.5 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-xs';
+      row.innerHTML = `
+        <select class="offer-store col-span-6 sm:col-span-3 px-2 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)]">
+          ${STORES.map(s => `<option value="${s.id}" ${s.id === defaultStoreId ? 'selected' : ''}>${s.name}</option>`).join('')}
+        </select>
+        <input type="number" min="1" placeholder="售價(元)" required class="offer-price col-span-3 sm:col-span-2 px-2 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)]" />
+        <input type="number" min="0.01" step="any" placeholder="總容量" required class="offer-qty col-span-3 sm:col-span-2 px-2 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)]" />
+        <select class="offer-promo col-span-5 sm:col-span-2 px-2 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)]">
+          <option value="none">無促銷</option>
+          <option value="bogo">買1送1</option>
+          <option value="plus1">加1元多1件</option>
+          <option value="second_50">第2件5折</option>
+          <option value="off_88">88折</option>
+        </select>
+        <input type="url" placeholder="商品網址(選填)" class="offer-url col-span-5 sm:col-span-2 px-2 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)]" />
+        <button type="button" class="remove-row col-span-2 sm:col-span-1 text-[var(--error)] hover:underline cursor-pointer">刪除</button>
+      `;
+      row.querySelector('.remove-row').addEventListener('click', () => {
+        if (container.children.length > 1) row.remove();
+      });
+      container.appendChild(row);
+    }
+
+    // =========================================================================
+    // 8. Events & Initial Boot
+    // =========================================================================
+    document.getElementById('btn-theme-toggle').addEventListener('click', () => {
+      const root = document.documentElement;
+      const isDark = root.classList.toggle('dark');
+      try { localStorage.setItem('tw_price_theme', isDark ? 'dark' : 'light'); } catch (e) {}
+    });
+
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.sort = btn.dataset.sort;
+        document.querySelectorAll('.sort-btn').forEach(b => {
+          const active = b.dataset.sort === state.sort;
+          b.className = `sort-btn px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
+            active
+              ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
+              : 'bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
+          }`;
+        });
+        renderFlatOfferLists();
+      });
+    });
+
+    document.querySelectorAll('.view-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.viewMode = btn.dataset.viewMode;
+        document.querySelectorAll('.view-mode-btn').forEach(b => {
+          const active = b.dataset.viewMode === state.viewMode;
+          b.className = `view-mode-btn px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${
+            active
+              ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
+              : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+          }`;
+        });
+        renderFlatOfferLists();
+      });
+    });
+
+    document.getElementById('toggle-travel-cost').addEventListener('change', (e) => {
+      state.includeTravelCost = e.target.checked;
+      renderFlatOfferLists();
+    });
+
+    document.getElementById('travel-rate-select').addEventListener('change', (e) => {
+      state.travelRatePerKm = parseFloat(e.target.value) || 7.5;
+      renderFlatOfferLists();
+    });
+
+    document.getElementById('toggle-good-buy-only').addEventListener('change', (e) => {
+      state.goodBuyOnly = e.target.checked;
+      renderFlatOfferLists();
+    });
+
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      const val = e.target.value;
+      state.search = val;
+      state.selectedProductId = 'all';
+      document.getElementById('btn-clear-search').classList.toggle('hidden', !val.trim());
+      renderProductQueryPills();
+      renderFlatOfferLists();
+    });
+
+    document.getElementById('btn-clear-search').addEventListener('click', () => {
+      state.search = '';
+      state.selectedProductId = 'all';
+      document.getElementById('search-input').value = '';
+      document.getElementById('btn-clear-search').classList.add('hidden');
+      renderProductQueryPills();
+      renderFlatOfferLists();
+    });
+
+    document.getElementById('btn-search-all').addEventListener('click', () => {
+      state.search = '';
+      state.selectedProductId = 'all';
+      document.getElementById('search-input').value = '';
+      document.getElementById('btn-clear-search').classList.add('hidden');
+      renderProductQueryPills();
+      renderFlatOfferLists();
+    });
+
+    document.getElementById('btn-toggle-filters').addEventListener('click', () => {
+      document.getElementById('filter-drawer').classList.toggle('hidden');
+    });
+
+    document.getElementById('location-select').addEventListener('change', (e) => {
+      state.locationKey = e.target.value;
+      state.gpsCoords = null;
+      document.getElementById('gps-status').textContent = '';
+      renderFreshRadar();
+      renderStoreButtons();
+      renderFlatOfferLists();
+    });
+
+    document.getElementById('btn-gps').addEventListener('click', () => {
+      const statusEl = document.getElementById('gps-status');
+      if (!navigator.geolocation) { statusEl.textContent = '不支援 GPS'; return; }
+      statusEl.textContent = '定位中...';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          state.gpsCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          statusEl.textContent = `GPS (${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)})`;
+          renderFreshRadar();
+          renderStoreButtons();
+          renderFlatOfferLists();
+        },
+        () => { statusEl.textContent = '無法取得權限'; },
+        { timeout: 6000 }
+      );
+    });
+
+    document.getElementById('fresh-time-override').addEventListener('change', (e) => {
+      state.freshTimeOverride = e.target.value;
+      renderFreshRadar();
+      renderFlatOfferLists();
+    });
+
+    document.getElementById('apply-fresh-discount').addEventListener('change', (e) => {
+      state.applyFreshDiscount = e.target.checked;
+      renderFlatOfferLists();
+    });
+
+    document.getElementById('distance-filter').addEventListener('change', (e) => {
+      state.maxDistanceKm = e.target.value;
+      renderStoreButtons();
+      renderFlatOfferLists();
+    });
+
+    document.getElementById('promo-only').addEventListener('change', (e) => {
+      state.promoOnly = e.target.checked;
+      renderFlatOfferLists();
+    });
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.channelPreset;
+        if (mode === 'all') state.selectedStores = new Set(STORES.map(s => s.id));
+        else if (mode === 'physical') state.selectedStores = new Set(STORES.filter(s => s.type === 'physical').map(s => s.id));
+        else if (mode === 'supermarket') state.selectedStores = new Set(STORES.filter(s => s.subType === 'supermarket').map(s => s.id));
+        else if (mode === 'cvs') state.selectedStores = new Set(STORES.filter(s => s.subType === 'cvs').map(s => s.id));
+        else if (mode === 'drugstore') state.selectedStores = new Set(STORES.filter(s => s.subType === 'drugstore').map(s => s.id));
+        else if (mode === 'online') state.selectedStores = new Set(STORES.filter(s => s.type === 'online').map(s => s.id));
+        else state.selectedStores.clear();
+        renderStoreButtons();
+        renderFlatOfferLists();
+      });
+    });
+
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      const targetProd = state.selectedProductId !== 'all'
+        ? getAllProducts().find(p => p.id === state.selectedProductId) || INITIAL_PRODUCTS[0]
+        : INITIAL_PRODUCTS[Math.floor(Math.random() * INITIAL_PRODUCTS.length)];
+      const o = targetProd.offers[Math.floor(Math.random() * targetProd.offers.length)];
+      const delta = Math.random() > 0.5 ? -3 : 3;
+      o.price = Math.max(10, o.price + delta);
+      if (delta < 0) o.promo = '剛降價!';
+      state.lastUpdated = new Date();
+      updateTimestampText();
+      renderFlatOfferLists();
+    });
+
+    document.querySelectorAll('[data-close-modal]').forEach(btn => {
+      btn.addEventListener('click', () => document.getElementById(btn.dataset.closeModal).classList.add('hidden'));
+    });
+
+    document.getElementById('btn-calc').addEventListener('click', () => {
+      updateCalculator();
+      document.getElementById('modal-calc').classList.remove('hidden');
+    });
+
+    ['calc-a-price', 'calc-a-qty', 'calc-a-pack', 'calc-a-promo', 'calc-b-price', 'calc-b-qty', 'calc-b-pack', 'calc-b-promo'].forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener('input', updateCalculator);
+      el.addEventListener('change', updateCalculator);
+    });
+
+    document.getElementById('btn-open-basket').addEventListener('click', () => {
+      renderBasketModal();
+      document.getElementById('modal-basket').classList.remove('hidden');
+    });
+
+    document.getElementById('btn-add-product').addEventListener('click', () => {
+      const container = document.getElementById('custom-offers-container');
+      container.innerHTML = '';
+      addCustomOfferRow('pxmart');
+      addCustomOfferRow('momo');
+      document.getElementById('modal-add').classList.remove('hidden');
+    });
+
+    document.getElementById('btn-add-offer-row').addEventListener('click', () => addCustomOfferRow('coupang'));
+
+    document.getElementById('form-add-product').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const brand = document.getElementById('add-brand').value.trim() || '自訂品牌';
+      const name = document.getElementById('add-name').value.trim();
+      const category = document.getElementById('add-category').value;
+      const baseUnit = document.getElementById('add-unit').value;
+      const displayPer = parseInt(document.getElementById('add-display-per').value, 10);
+      const promoLabelMap = { none: '自訂即時價', bogo: '買1送1折算', plus1: '加1元多1件折算', second_50: '第2件5折折算', off_88: '88折折算' };
+
+      const offers = Array.from(document.querySelectorAll('#custom-offers-container > div')).map(r => {
+        const storeId = r.querySelector('.offer-store').value;
+        const rawPrice = parseFloat(r.querySelector('.offer-price').value);
+        const rawQty = parseFloat(r.querySelector('.offer-qty').value);
+        const promoRule = r.querySelector('.offer-promo').value;
+        const url = r.querySelector('.offer-url').value.trim();
+        const calc = applyPromoRule(rawPrice, rawQty, promoRule);
+        const effP = Math.round(calc.effPrice);
+        return {
+          storeId,
+          itemTitle: name,
+          price: effP,
+          histLow: Math.round(effP * 0.95),
+          histAvg: Math.round(effP * 1.05),
+          qty: calc.effQty,
+          url,
+          specText: `共 ${calc.effQty}${baseUnit}`,
+          promo: promoLabelMap[promoRule] || '自訂即時價',
+          shipping: getStore(storeId).type === 'physical' ? '門市自取' : '網購配送'
+        };
+      }).filter(o => o.price > 0 && o.qty > 0);
+
+      if (!name || !offers.length) return;
+      const newId = `custom_${Date.now()}`;
+      customProducts.unshift({
+        id: newId,
+        brand,
+        name,
+        shortLabel: `✨ ${brand} ${name}`,
+        searchKey: `${brand} ${name}`,
+        category,
+        baseUnit,
+        displayPer,
+        isCustom: true,
+        offers
+      });
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(customProducts)); } catch (err) {}
+      state.selectedProductId = newId;
+      state.search = '';
+      document.getElementById('search-input').value = `${brand} ${name}`;
+      document.getElementById('btn-clear-search').classList.remove('hidden');
+      document.getElementById('form-add-product').reset();
+      document.getElementById('modal-add').classList.add('hidden');
+      renderProductQueryPills();
+      renderFlatOfferLists();
+    });
+
+    const initProd = getAllProducts().find(p => p.id === state.selectedProductId);
+    if (initProd) {
+      document.getElementById('search-input').value = `${initProd.brand} ${initProd.name}`;
+      document.getElementById('btn-clear-search').classList.remove('hidden');
+    }
+    updateTimestampText();
+    renderFreshRadar();
+    renderProductQueryPills();
+    renderStoreButtons();
+    renderFlatOfferLists();
+  </script>
+</body>
+</html>
