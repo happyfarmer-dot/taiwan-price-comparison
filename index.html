@@ -54,6 +54,8 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
     }
     .tabular-nums { font-variant-numeric: tabular-nums; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
   <script>
     (function () {
@@ -113,172 +115,176 @@
     </div>
   </header>
 
-  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+  <div class="max-w-4xl mx-auto px-3 sm:px-6 py-5 space-y-5">
 
-    <!-- Step 1: Product Query & Price Sort Controls -->
-    <section class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
-      <!-- Search Input Bar -->
-      <div class="flex flex-col sm:flex-row gap-2.5">
+    <!-- Step 1: Clean Search & Streamlined Controls -->
+    <section class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-sm">
+      <!-- Hero Search Bar (Supports ANY product real-time search) -->
+      <form id="search-form" class="flex flex-col sm:flex-row gap-2">
         <div class="relative flex-1">
           <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] text-sm pointer-events-none">🔍</span>
-          <input id="search-input" type="text" placeholder="輸入產品名稱、品牌或通路查詢比價（例如：瑞穗鮮乳、舒潔衛生紙、ARIEL、全聯）..."
-            class="w-full pl-10 pr-20 py-2.5 text-sm rounded-xl bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--placeholder)] focus:outline-none focus:border-[var(--primary)] transition" />
+          <input id="search-input" type="text" placeholder="輸入任何商品名稱查即時價錢（例：瑞穗鮮乳、AirPods、統一布丁、衛生紙）..."
+            class="w-full pl-10 pr-16 py-2.5 text-sm rounded-xl bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--placeholder)] focus:outline-none focus:border-[var(--primary)] transition" />
           <button id="btn-clear-search" type="button"
             class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 px-2 py-1 text-xs rounded-md bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer">
-            ✕ 清除
+            ✕
           </button>
         </div>
-        <button id="btn-search-all" type="button"
-          class="px-4 py-2.5 text-xs font-medium rounded-xl border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--secondary)] transition cursor-pointer shrink-0">
-          顯示全部品項
-        </button>
+        <div class="flex items-center gap-2 shrink-0">
+          <button id="btn-live-search" type="submit"
+            class="flex-1 sm:flex-initial px-4 py-2.5 text-xs font-semibold rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition cursor-pointer">
+            ⚡ 查即時價錢
+          </button>
+          <button id="btn-search-all" type="button"
+            class="px-3.5 py-2.5 text-xs font-medium rounded-xl border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--secondary)] transition cursor-pointer">
+            全部推薦
+          </button>
+        </div>
+      </form>
+
+      <!-- Single-Row Horizontal Quick-Pick Pills -->
+      <div class="flex items-center gap-2 text-xs">
+        <span class="text-[var(--muted-foreground)] font-medium shrink-0">🔥 熱門：</span>
+        <div id="product-query-pills" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5"></div>
       </div>
 
-      <!-- Quick Product Query Selector -->
-      <div class="space-y-1.5">
-        <div class="text-xs text-[var(--muted-foreground)] font-medium">點選產品直接查詢並依價錢排序：</div>
-        <div id="product-query-pills" class="flex flex-wrap gap-1.5"></div>
-      </div>
-
-      <!-- Sort Order + View Split + Travel Cost (#10) & Historical Low (#5) Controls -->
-      <div class="pt-3 border-t border-[var(--card-border)] flex flex-col gap-3 text-xs">
-        <div class="flex flex-wrap items-center justify-between gap-2.5">
-          <!-- Price Sort Switcher -->
-          <div class="flex flex-wrap items-center gap-1.5">
-            <span class="text-[var(--muted-foreground)] font-medium mr-0.5">排列順序：</span>
-            <button type="button" data-sort="price_asc"
-              class="sort-btn px-3 py-1.5 rounded-lg font-medium transition cursor-pointer bg-[var(--primary)] text-[var(--primary-foreground)]">
-              💰 價錢由低到高
-            </button>
-            <button type="button" data-sort="unit_asc"
-              class="sort-btn px-3 py-1.5 rounded-lg font-medium transition cursor-pointer bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]">
-              ⚖️ 單位價由低到高
-            </button>
-            <button type="button" data-sort="price_desc"
-              class="sort-btn px-3 py-1.5 rounded-lg font-medium transition cursor-pointer bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]">
-              價錢由高到低
-            </button>
-            <button type="button" data-sort="dist_asc"
-              class="sort-btn px-3 py-1.5 rounded-lg font-medium transition cursor-pointer bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]">
-              📍 距離由近到遠
-            </button>
-          </div>
-
-          <!-- Channel Split Switcher -->
-          <div class="inline-flex p-0.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
-            <button type="button" data-view-mode="split"
-              class="view-mode-btn px-2.5 py-1 rounded-lg font-medium transition cursor-pointer bg-[var(--primary)] text-[var(--primary-foreground)]">
-              實體＋網購分開列
-            </button>
-            <button type="button" data-view-mode="physical_only"
-              class="view-mode-btn px-2.5 py-1 rounded-lg font-medium transition cursor-pointer text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
-              🏪 僅實體店
-            </button>
-            <button type="button" data-view-mode="online_only"
-              class="view-mode-btn px-2.5 py-1 rounded-lg font-medium transition cursor-pointer text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
-              🛒 僅網購
-            </button>
-          </div>
+      <!-- Streamlined 1-Row Control Strip -->
+      <div class="pt-3 border-t border-[var(--card-border)] flex flex-wrap items-center justify-between gap-2 text-xs">
+        <!-- Channel Split Tabs -->
+        <div class="inline-flex p-0.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+          <button type="button" data-view-mode="split"
+            class="view-mode-btn px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer bg-[var(--primary)] text-[var(--primary-foreground)]">
+            全部通路
+          </button>
+          <button type="button" data-view-mode="physical_only"
+            class="view-mode-btn px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+            🏪 實體門市
+          </button>
+          <button type="button" data-view-mode="online_only"
+            class="view-mode-btn px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+            🛒 網路電商
+          </button>
         </div>
 
-        <!-- Feature #10 (Travel Cost Toggle) + Feature #5 (Historical Low Filter) + Location Row -->
-        <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <div class="flex flex-wrap items-center gap-2">
-            <!-- Location & Distance -->
-            <div class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
-              <span>📍</span>
-              <select id="location-select" class="bg-transparent text-[var(--foreground)] focus:outline-none cursor-pointer">
-                <option value="taipei_xinyi">台北信義區</option>
-                <option value="taipei_daan">台北大安區</option>
-                <option value="newtaipei_banqiao">新北板橋區</option>
-                <option value="taoyuan_zhongli">桃園中壢區</option>
-                <option value="hsinchu_east">新竹東區</option>
-                <option value="taichung_xitun">台中西屯區</option>
-                <option value="tainan_east">台南東區</option>
-                <option value="kaohsiung_zuoying">高雄左營區</option>
-              </select>
-              <span class="text-[var(--border)]">|</span>
-              <select id="distance-filter" class="bg-transparent text-[var(--foreground)] focus:outline-none cursor-pointer">
+        <!-- Compact Sort + Area + Advanced Drawer Toggle -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+            <span class="text-[var(--muted-foreground)]">排序</span>
+            <select id="sort-select" class="bg-transparent font-medium text-[var(--foreground)] focus:outline-none cursor-pointer">
+              <option value="price_asc">💰 價錢低 → 高</option>
+              <option value="unit_asc">⚖️ 單位價低 → 高</option>
+              <option value="dist_asc">📍 距離近 → 遠</option>
+              <option value="price_desc">價錢高 → 低</option>
+            </select>
+          </div>
+
+          <div class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+            <span>📍</span>
+            <select id="location-select" class="bg-transparent text-[var(--foreground)] focus:outline-none cursor-pointer">
+              <option value="taipei_xinyi">台北信義</option>
+              <option value="taipei_daan">台北大安</option>
+              <option value="newtaipei_banqiao">新北板橋</option>
+              <option value="taoyuan_zhongli">桃園中壢</option>
+              <option value="hsinchu_east">新竹東區</option>
+              <option value="taichung_xitun">台中西屯</option>
+              <option value="tainan_east">台南東區</option>
+              <option value="kaohsiung_zuoying">高雄左營</option>
+            </select>
+          </div>
+
+          <button id="btn-toggle-filters" type="button"
+            class="px-3 py-1.5 rounded-xl bg-[var(--background)] hover:bg-[var(--secondary)] border border-[var(--border)] font-medium transition cursor-pointer inline-flex items-center gap-1.5">
+            <span>⚙️ 進階篩選</span>
+            <span id="active-filter-badge" class="hidden px-1.5 py-0.5 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] text-[10px] tabular-nums font-bold">0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Filter Chips Summary (Only shown when filters are active) -->
+      <div id="active-filter-chips" class="hidden flex flex-wrap items-center gap-1.5 text-[11px]"></div>
+
+      <!-- Collapsible Advanced Filters & Tools Drawer -->
+      <div id="filter-drawer" class="hidden pt-3 border-t border-[var(--card-border)] space-y-3.5 text-xs">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <!-- Distance & GPS -->
+          <div class="p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="font-medium">📏 門市距離：</span>
+              <select id="distance-filter" class="px-2 py-1 rounded-lg bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] cursor-pointer">
                 <option value="all">不限距離</option>
                 <option value="1">1 km 內</option>
                 <option value="3">3 km 內</option>
                 <option value="5">5 km 內</option>
               </select>
             </div>
-
-            <!-- Feature #10: Physical Store Travel Cost Calculator Toggle -->
-            <div class="inline-flex flex-wrap items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
-              <label class="inline-flex items-center gap-1.5 cursor-pointer select-none font-medium">
-                <input id="toggle-travel-cost" type="checkbox" class="accent-[var(--primary)]" />
-                <span>🚗 實體店計入來回路程成本</span>
-              </label>
-              <span class="text-[var(--border)]">|</span>
-              <select id="travel-rate-select" class="bg-transparent text-[var(--muted-foreground)] focus:outline-none cursor-pointer">
-                <option value="3">機車 $3/km (來回$6/km)</option>
-                <option value="7.5" selected>開車油資 $7.5/km (來回$15/km)</option>
-                <option value="12.5">含時間成本 $12.5/km (來回$25/km)</option>
-              </select>
+            <div class="flex items-center gap-2">
+              <button id="btn-gps" type="button"
+                class="px-2.5 py-1 rounded-lg bg-[var(--card)] hover:bg-[var(--secondary)] border border-[var(--border)] transition cursor-pointer">
+                🎯 GPS 定位
+              </button>
+              <span id="gps-status" class="text-[var(--muted-foreground)]"></span>
             </div>
-
-            <!-- Feature #5: Historical Low Filter Toggle -->
-            <label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[var(--background)] border border-[var(--border)] cursor-pointer select-none">
-              <input id="toggle-good-buy-only" type="checkbox" class="accent-[var(--primary)]" />
-              <span>🟢 只看「近期低點・值得買」</span>
-            </label>
-
-            <button id="btn-gps" type="button"
-              class="px-2.5 py-1.5 rounded-xl bg-[var(--background)] hover:bg-[var(--secondary)] border border-[var(--border)] transition cursor-pointer">
-              🎯 定位
-            </button>
-            <button id="btn-toggle-filters" type="button"
-              class="px-2.5 py-1.5 rounded-xl bg-[var(--background)] hover:bg-[var(--secondary)] border border-[var(--border)] transition cursor-pointer">
-              ⚙️ 通路與惜食 (<span id="kpi-stores" class="tabular-nums">0</span>)
-            </button>
-            <span id="gps-status" class="text-[var(--muted-foreground)]"></span>
           </div>
 
-          <div class="text-[var(--muted-foreground)] flex flex-wrap items-center gap-2">
-            <span id="current-query-summary"></span>
-            <button id="btn-refresh" type="button" title="重新讀取最新報價" class="hover:text-[var(--foreground)] cursor-pointer">↻ 更新報價</button>
+          <!-- Travel Cost (#10) -->
+          <div class="p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] flex flex-wrap items-center justify-between gap-2">
+            <label class="inline-flex items-center gap-1.5 cursor-pointer select-none font-medium">
+              <input id="toggle-travel-cost" type="checkbox" class="accent-[var(--primary)]" />
+              <span>🚗 實體店計入來回路程成本</span>
+            </label>
+            <select id="travel-rate-select" class="px-2 py-1 rounded-lg bg-[var(--card)] border border-[var(--border)] text-[var(--muted-foreground)] cursor-pointer">
+              <option value="3">機車 $3/km (來回$6)</option>
+              <option value="7.5" selected>開車 $7.5/km (來回$15)</option>
+              <option value="12.5">含時間 $12.5/km (來回$25)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Quick Toggles & Tools -->
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-3">
+            <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+              <input id="toggle-good-buy-only" type="checkbox" class="accent-[var(--primary)]" />
+              <span>🟢 只看「近期低點」</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+              <input id="promo-only" type="checkbox" class="accent-[var(--primary)]" />
+              <span>🏷️ 只看有促銷</span>
+            </label>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="btn-refresh" type="button" title="重新讀取最新報價"
+              class="px-2.5 py-1 rounded-lg bg-[var(--background)] hover:bg-[var(--secondary)] border border-[var(--border)] transition cursor-pointer">
+              ↻ 更新報價
+            </button>
             <a href="https://colab.research.google.com/github/happyfarmer-dot/taiwan-price-comparison/blob/main/colab/update_taiwan_prices.ipynb"
               target="_blank" rel="noopener noreferrer"
-              class="px-2 py-0.5 rounded-md bg-[var(--colab-bg)] text-[var(--colab-text)] border border-[var(--colab-border)] hover:bg-[var(--colab-hover)] font-medium transition">
-              📓 開啟 Google Colab 更新 ↗
+              class="px-2.5 py-1 rounded-lg bg-[var(--colab-bg)] text-[var(--colab-text)] border border-[var(--colab-border)] hover:bg-[var(--colab-hover)] font-medium transition">
+              📓 Google Colab 抓價 ↗
             </a>
           </div>
         </div>
-      </div>
 
-      <!-- Expandable Store & Near-Expiry Filter Drawer -->
-      <div id="filter-drawer" class="hidden pt-3 border-t border-[var(--card-border)] space-y-3 text-xs">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div class="flex flex-wrap items-center gap-1.5">
-            <span class="font-semibold">快速切換通路：</span>
-            <button data-channel-preset="all" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">全部</button>
-            <button data-channel-preset="physical" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">僅實體</button>
-            <button data-channel-preset="supermarket" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">超市/量販</button>
-            <button data-channel-preset="cvs" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">四大超商</button>
-            <button data-channel-preset="drugstore" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">藥妝/百貨</button>
-            <button data-channel-preset="online" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">僅網購</button>
-            <button data-channel-preset="none" class="preset-btn px-2 py-1 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer text-[var(--muted-foreground)]">清除</button>
+        <!-- Store Filter Checkboxes -->
+        <div class="space-y-2 pt-2 border-t border-[var(--card-border)]">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="font-semibold">通路篩選（已選 <span id="kpi-stores" class="tabular-nums">0</span> 家）：</span>
+            <div class="flex flex-wrap items-center gap-1">
+              <button data-channel-preset="all" class="preset-btn px-2 py-0.5 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">全部</button>
+              <button data-channel-preset="physical" class="preset-btn px-2 py-0.5 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">僅實體</button>
+              <button data-channel-preset="supermarket" class="preset-btn px-2 py-0.5 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">超市/量販</button>
+              <button data-channel-preset="cvs" class="preset-btn px-2 py-0.5 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">超商</button>
+              <button data-channel-preset="drugstore" class="preset-btn px-2 py-0.5 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">藥妝</button>
+              <button data-channel-preset="online" class="preset-btn px-2 py-0.5 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer">僅網購</button>
+              <button data-channel-preset="none" class="preset-btn px-2 py-0.5 rounded border border-[var(--border)] hover:bg-[var(--secondary)] cursor-pointer text-[var(--muted-foreground)]">清除</button>
+            </div>
           </div>
-          <label class="flex items-center gap-1.5 cursor-pointer select-none">
-            <input id="promo-only" type="checkbox" class="accent-[var(--primary)]" />
-            <span>只顯示有促銷／優惠品項</span>
-          </label>
+          <div id="physical-stores" class="flex flex-wrap gap-1.5"></div>
+          <div id="online-stores" class="flex flex-wrap gap-1.5"></div>
         </div>
 
-        <div class="space-y-2">
-          <div>
-            <div class="text-[var(--muted-foreground)] mb-1">🏪 實體通路（依距離排序）：</div>
-            <div id="physical-stores" class="flex flex-wrap gap-1.5"></div>
-          </div>
-          <div>
-            <div class="text-[var(--muted-foreground)] mb-1">🛒 網購平台：</div>
-            <div id="online-stores" class="flex flex-wrap gap-1.5"></div>
-          </div>
-        </div>
-
+        <!-- Near-Expiry Radar -->
         <div class="p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] space-y-2">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2">
@@ -303,17 +309,40 @@
       </div>
     </section>
 
+    <!-- Live Universal Search Hub (Shown whenever user searches ANY keyword) -->
+    <section id="live-search-hub" class="hidden bg-[var(--card)] border border-[var(--primary)]/40 rounded-2xl p-4 space-y-3 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded-md bg-[var(--primary)] text-[var(--primary-foreground)] text-[11px] font-bold">全網即時查價</span>
+          <h2 id="live-search-title" class="text-sm font-bold"></h2>
+          <span id="live-search-status" class="text-xs text-[var(--muted-foreground)]"></span>
+        </div>
+        <button id="btn-add-searched-product" type="button"
+          class="px-3 py-1 text-xs font-medium rounded-lg border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--secondary)] transition cursor-pointer">
+          + 記錄此商品門市價格
+        </button>
+      </div>
+
+      <div id="live-channel-links" class="space-y-2 text-xs"></div>
+    </section>
+
+    <!-- Query Status Bar -->
+    <div class="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-[var(--muted-foreground)]">
+      <span id="current-query-summary"></span>
+      <span id="last-updated-text" class="tabular-nums"></span>
+    </div>
+
     <!-- ===================================================================== -->
     <!-- DIRECT PRICE-ORDERED LISTS (NO OUTER BRAND GROUP CARDS)               -->
     <!-- 1. 實體店面產品清單 (依價錢排序)  |  2. 網購平台產品清單 (依價錢排序)      -->
     <!-- ===================================================================== -->
-    <main class="space-y-8">
+    <main class="space-y-7">
       <!-- Zone 1: Physical Store Products Flat Price-Ordered List -->
-      <section id="section-physical" class="space-y-3">
+      <section id="section-physical" class="space-y-2.5">
         <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b-2 border-[var(--primary)]">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="px-2.5 py-1 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-bold">實體店面產品</span>
-            <h2 class="text-base font-bold tracking-tight" id="physical-zone-title">🏪 實體門市品項（依價錢順序排列）</h2>
+            <span class="px-2.5 py-0.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-bold">實體店面</span>
+            <h2 class="text-sm sm:text-base font-bold tracking-tight" id="physical-zone-title">🏪 實體門市品項（依價錢順序排列）</h2>
           </div>
           <span id="physical-count-badge" class="text-xs text-[var(--muted-foreground)] tabular-nums"></span>
         </div>
@@ -322,11 +351,11 @@
       </section>
 
       <!-- Zone 2: Online Store Products Flat Price-Ordered List -->
-      <section id="section-online" class="space-y-3">
+      <section id="section-online" class="space-y-2.5">
         <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b-2 border-[var(--primary)]">
           <div class="flex items-center gap-2">
-            <span class="px-2.5 py-1 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-bold">網購平台產品</span>
-            <h2 class="text-base font-bold tracking-tight">🛒 網路電商品項（依價錢順序排列）</h2>
+            <span class="px-2.5 py-0.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-bold">網路電商</span>
+            <h2 class="text-sm sm:text-base font-bold tracking-tight" id="online-zone-title">🛒 網路電商品項（依價錢順序排列）</h2>
           </div>
           <span id="online-count-badge" class="text-xs text-[var(--muted-foreground)] tabular-nums"></span>
         </div>
@@ -336,9 +365,9 @@
     </main>
 
     <!-- Empty State -->
-    <div id="empty-state" class="hidden bg-[var(--card)] border border-[var(--border)] rounded-2xl p-12 text-center space-y-2">
-      <div class="text-base font-semibold">找不到符合查詢條件的產品品項</div>
-      <p class="text-xs text-[var(--muted-foreground)]">請點選上方產品按鈕、取消「只看近期低點」、放寬距離篩選，或點開「⚙️ 通路與惜食」勾選更多通路。</p>
+    <div id="empty-state" class="hidden bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 text-center space-y-2.5">
+      <div class="text-sm font-semibold" id="empty-state-title">找不到符合查詢條件的推薦品項</div>
+      <p class="text-xs text-[var(--muted-foreground)]" id="empty-state-desc">您可以點擊上方「全網即時查價」各通路按鈕直接比價，或點「+ 記錄此商品門市價格」自行建立比價清單。</p>
     </div>
 
     <!-- Footer -->
@@ -1046,19 +1075,19 @@
 
       const pillsHtml = [
         `<button type="button" data-product-id="all"
-          class="px-3 py-1.5 text-xs font-medium rounded-xl border transition cursor-pointer ${
+          class="px-3 py-1 text-xs font-medium rounded-full border whitespace-nowrap shrink-0 transition cursor-pointer ${
             isAll
               ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]'
               : 'bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border-[var(--border)]'
           }">
-          📋 全部品項
+          全部推薦
         </button>`,
         ...products.map(p => {
           const active = state.selectedProductId === p.id;
-          const label = p.shortLabel || `【${p.brand}】${p.name}`;
+          const label = p.shortLabel || `${p.brand} ${p.name}`;
           return `
             <button type="button" data-product-id="${p.id}"
-              class="px-3 py-1.5 text-xs font-medium rounded-xl border transition cursor-pointer ${
+              class="px-3 py-1 text-xs font-medium rounded-full border whitespace-nowrap shrink-0 transition cursor-pointer ${
                 active
                   ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]'
                   : 'bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border-[var(--border)]'
@@ -1075,6 +1104,9 @@
         btn.addEventListener('click', () => {
           const pid = btn.dataset.productId;
           state.selectedProductId = pid;
+          state.liveSearchKeyword = '';
+          state.liveSearchStatus = 'idle';
+          state.liveOnlineOffers = [];
           const searchInput = document.getElementById('search-input');
           const clearBtn = document.getElementById('btn-clear-search');
           if (pid === 'all') {
@@ -1088,6 +1120,213 @@
             clearBtn.classList.remove('hidden');
           }
           renderProductQueryPills();
+          renderFlatOfferLists();
+        });
+      });
+    }
+
+    function parseSpecFromTitle(title) {
+      if (!title) return { qty: 1, baseUnit: '件', displayPer: 1, specText: '1件' };
+      const multi = title.match(/(\d+(?:\.\d+)?)\s*(ml|g|kg|l|抽|入|片|顆|包)\s*[x×*]\s*(\d+)/i);
+      if (multi) {
+        const unitVal = parseFloat(multi[1]);
+        const rawUnit = multi[2].toLowerCase();
+        const count = parseInt(multi[3], 10);
+        if (rawUnit === 'kg') return { qty: Math.round(unitVal * 1000 * count), baseUnit: 'g', displayPer: 100, specText: `${unitVal}kg × ${count}` };
+        if (rawUnit === 'l') return { qty: Math.round(unitVal * 1000 * count), baseUnit: 'ml', displayPer: 100, specText: `${unitVal}L × ${count}` };
+        const displayPer = (rawUnit === 'ml' || rawUnit === 'g') ? 100 : 1;
+        return { qty: unitVal * count, baseUnit: rawUnit, displayPer, specText: `${unitVal}${multi[2]} × ${count}` };
+      }
+      const single = title.match(/(\d+(?:\.\d+)?)\s*(ml|g|kg|l|抽|入|片|顆|包)/i);
+      if (single) {
+        const val = parseFloat(single[1]);
+        const rawUnit = single[2].toLowerCase();
+        if (rawUnit === 'kg') return { qty: Math.round(val * 1000), baseUnit: 'g', displayPer: 100, specText: `${val}kg` };
+        if (rawUnit === 'l') return { qty: Math.round(val * 1000), baseUnit: 'ml', displayPer: 100, specText: `${val}L` };
+        const displayPer = (rawUnit === 'ml' || rawUnit === 'g') ? 100 : 1;
+        return { qty: val, baseUnit: rawUnit, displayPer, specText: `${val}${single[2]}` };
+      }
+      return { qty: 1, baseUnit: '件', displayPer: 1, specText: '即時報價' };
+    }
+
+    let activeFetchController = null;
+    async function fetchLivePChomeOffers(keyword) {
+      const kw = (keyword || '').trim();
+      if (!kw) return;
+      if (activeFetchController) activeFetchController.abort();
+      activeFetchController = new AbortController();
+
+      state.liveSearchKeyword = kw;
+      state.liveSearchStatus = 'loading';
+      state.liveOnlineOffers = [];
+      renderLiveSearchHub();
+
+      const targetUrl = `https://ecshweb.pchome.com.tw/search/v3.3/all/results?q=${encodeURIComponent(kw)}&page=1&sort=prc/ac`;
+      const relays = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+        `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`
+      ];
+
+      let data = null;
+      for (const url of relays) {
+        const timer = setTimeout(() => activeFetchController && activeFetchController.abort(), 5000);
+        try {
+          const res = await fetch(url, { signal: activeFetchController.signal });
+          clearTimeout(timer);
+          if (!res.ok) continue;
+          const json = await res.json();
+          if (json && Array.isArray(json.prods)) {
+            data = json;
+            break;
+          }
+        } catch (err) {
+          clearTimeout(timer);
+          if (err.name === 'AbortError' && state.liveSearchKeyword !== kw) return;
+        }
+      }
+
+      if (state.liveSearchKeyword !== kw) return;
+
+      if (data && data.prods && data.prods.length > 0) {
+        const prices = data.prods.map(p => Number(p.price)).filter(n => n > 0);
+        const avgPrice = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : 0;
+        const minPrice = prices.length ? Math.min(...prices) : 0;
+
+        state.liveOnlineOffers = data.prods
+          .filter(p => Number(p.price) > 0 && p.Id && p.name)
+          .slice(0, 12)
+          .map((p, i) => {
+            const spec = parseSpecFromTitle(p.name);
+            const price = Math.round(Number(p.price));
+            const originPrice = Number(p.originPrice) > price ? Math.round(Number(p.originPrice)) : undefined;
+            return {
+              isLiveResult: true,
+              liveIndex: i,
+              storeId: 'pchome',
+              itemTitle: p.name,
+              price,
+              originalPrice: originPrice,
+              histLow: minPrice || price,
+              histAvg: avgPrice || price,
+              qty: spec.qty,
+              specText: spec.specText,
+              promo: '⚡ 即時抓價',
+              shipping: price >= 490 ? '滿490免運' : 'PChome 24h 配送',
+              url: `https://24h.pchome.com.tw/prod/${p.Id}`,
+              product: {
+                id: `live_${p.Id}`,
+                brand: 'PChome 即時',
+                name: p.name,
+                searchKey: kw,
+                category: '即時搜尋',
+                baseUnit: spec.baseUnit,
+                displayPer: spec.displayPer
+              }
+            };
+          });
+        state.liveSearchStatus = state.liveOnlineOffers.length ? 'done' : 'fallback';
+      } else {
+        state.liveOnlineOffers = [];
+        state.liveSearchStatus = 'fallback';
+      }
+      renderFlatOfferLists();
+    }
+
+    function renderLiveSearchHub() {
+      const hub = document.getElementById('live-search-hub');
+      const kw = state.search.trim();
+      if (!kw) {
+        hub.classList.add('hidden');
+        return;
+      }
+
+      hub.classList.remove('hidden');
+      document.getElementById('live-search-title').textContent = `「${kw}」各通路即時價錢`;
+
+      const statusEl = document.getElementById('live-search-status');
+      if (state.liveSearchStatus === 'loading') {
+        statusEl.textContent = '⏳ 正在即時抓取 PChome 24h 最新價格...';
+      } else if (state.liveSearchStatus === 'done' && state.liveSearchKeyword === kw) {
+        statusEl.textContent = `✅ 已即時抓到 ${state.liveOnlineOffers.length} 筆 PChome 24h 報價（依價錢排入下方）`;
+      } else if (state.liveSearchStatus === 'fallback' && state.liveSearchKeyword === kw) {
+        statusEl.textContent = 'ℹ️ 可直接點擊下方任一平台查看即時價錢，或於上方點「⚡ 查即時價錢」重試';
+      } else {
+        statusEl.textContent = '按 Enter 或點「⚡ 查即時價錢」抓取線上即時報價';
+      }
+
+      const q = encodeURIComponent(kw);
+      const onlineLinks = [
+        { label: 'BigGo 比價網', url: `https://biggo.com.tw/s/${q}/` },
+        { label: '飛比價格', url: `https://feebee.com.tw/s/${q}/` },
+        { label: 'PChome 24h', url: `https://24h.pchome.com.tw/search/?q=${q}` },
+        { label: 'momo 購物網', url: `https://www.momoshop.com.tw/search/searchShop.jsp?keyword=${q}` },
+        { label: '蝦皮購物', url: `https://shopee.tw/search?keyword=${q}` },
+        { label: 'Coupang 酷澎', url: `https://www.tw.coupang.com/np/search?q=${q}` },
+        { label: 'Yahoo 購物', url: `https://tw.buy.yahoo.com/search/product?p=${q}` }
+      ];
+      const physicalLinks = [
+        { label: '家樂福線上', url: `https://online.carrefour.com.tw/zh/search?q=${q}` },
+        { label: '好市多 Costco', url: `https://www.costco.com.tw/search?text=${q}` },
+        { label: '全聯 PXGo', url: `https://www.google.com/search?q=${encodeURIComponent('全聯 ' + kw)}` },
+        { label: '屈臣氏', url: `https://www.watsons.com.tw/search?text=${q}` },
+        { label: '康是美', url: `https://shop.cosmed.com.tw/v2/Search?q=${q}` },
+        { label: 'Google 購物比價', url: `https://www.google.com/search?tbm=shop&q=${q}` }
+      ];
+
+      const renderGroup = (title, items) => `
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-[var(--muted-foreground)] font-medium mr-1">${title}</span>
+          ${items.map(it => `
+            <a href="${it.url}" target="_blank" rel="noopener noreferrer"
+              class="px-2.5 py-1 rounded-lg bg-[var(--background)] hover:bg-[var(--secondary)] border border-[var(--border)] text-[var(--link)] font-medium transition">
+              ${it.label} ↗
+            </a>
+          `).join('')}
+        </div>
+      `;
+
+      document.getElementById('live-channel-links').innerHTML =
+        renderGroup('🛒 網購比價：', onlineLinks) +
+        renderGroup('🏪 實體／量販：', physicalLinks);
+    }
+
+    function renderActiveFilterChips() {
+      const chips = [];
+      if (state.includeTravelCost) chips.push({ key: 'travel', label: `🚗 含路程成本 ($${state.travelRatePerKm}/km)` });
+      if (state.goodBuyOnly) chips.push({ key: 'goodBuy', label: '🟢 只看近期低點' });
+      if (state.promoOnly) chips.push({ key: 'promo', label: '🏷️ 只看有促銷' });
+      if (state.maxDistanceKm !== 'all') chips.push({ key: 'dist', label: `📏 ${state.maxDistanceKm}km 內` });
+      if (state.applyFreshDiscount) chips.push({ key: 'fresh', label: '⏰ 套用惜食折價' });
+      if (state.selectedStores.size < STORES.length) chips.push({ key: 'stores', label: `🏪 已篩選 ${state.selectedStores.size}/${STORES.length} 家通路` });
+
+      const badgeEl = document.getElementById('active-filter-badge');
+      const chipsEl = document.getElementById('active-filter-chips');
+      badgeEl.textContent = chips.length;
+      badgeEl.classList.toggle('hidden', chips.length === 0);
+
+      if (!chips.length) {
+        chipsEl.classList.add('hidden');
+        chipsEl.innerHTML = '';
+        return;
+      }
+
+      chipsEl.classList.remove('hidden');
+      chipsEl.innerHTML = chips.map(c => `
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--secondary)] text-[var(--foreground)] border border-[var(--border)]">
+          ${c.label}
+          <button type="button" data-clear-chip="${c.key}" class="text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer ml-0.5">✕</button>
+        </span>
+      `).join('');
+
+      chipsEl.querySelectorAll('[data-clear-chip]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const k = btn.dataset.clearChip;
+          if (k === 'travel') { state.includeTravelCost = false; document.getElementById('toggle-travel-cost').checked = false; }
+          if (k === 'goodBuy') { state.goodBuyOnly = false; document.getElementById('toggle-good-buy-only').checked = false; }
+          if (k === 'promo') { state.promoOnly = false; document.getElementById('promo-only').checked = false; }
+          if (k === 'dist') { state.maxDistanceKm = 'all'; document.getElementById('distance-filter').value = 'all'; renderStoreButtons(); }
+          if (k === 'fresh') { state.applyFreshDiscount = false; document.getElementById('apply-fresh-discount').checked = false; }
+          if (k === 'stores') { state.selectedStores = new Set(STORES.map(s => s.id)); renderStoreButtons(); }
           renderFlatOfferLists();
         });
       });
@@ -1211,6 +1450,29 @@
         }
       }
 
+      // Include live-fetched PChome 24h results when searching any custom keyword
+      if (state.selectedProductId === 'all' && q && state.liveSearchKeyword.toLowerCase() === q && state.liveOnlineOffers.length > 0) {
+        for (const lo of state.liveOnlineOffers) {
+          if (!state.selectedStores.has(lo.storeId)) continue;
+          const store = getStore(lo.storeId);
+          const sortUnitPrice = calcUnitPrice(lo.price, lo.qty, lo.product.displayPer);
+          const histSignal = getHistoricalSignal(lo);
+          if (state.goodBuyOnly && histSignal.level !== 'good') continue;
+          onlineOffers.push({
+            ...lo,
+            offerKey: `live__${lo.product.id}`,
+            store,
+            distKm: null,
+            travelCost: 0,
+            branchName: '',
+            sortPrice: lo.price,
+            unitPrice: sortUnitPrice,
+            sortUnitPrice,
+            histSignal
+          });
+        }
+      }
+
       const sorter = (a, b) => {
         if (state.sort === 'price_asc') return a.sortPrice - b.sortPrice || a.sortUnitPrice - b.sortUnitPrice;
         if (state.sort === 'price_desc') return b.sortPrice - a.sortPrice || a.sortUnitPrice - b.sortUnitPrice;
@@ -1239,54 +1501,49 @@
       const showTravelAdded = store.type === 'physical' && state.includeTravelCost;
 
       return `
-        <div class="p-4 sm:px-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs hover:bg-[var(--secondary)]/20 transition">
+        <div class="p-3.5 sm:px-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 text-xs hover:bg-[var(--secondary)]/20 transition">
           <div class="flex items-start gap-3 min-w-0 flex-1">
             <div class="w-7 h-7 rounded-lg flex items-center justify-center font-mono font-bold tabular-nums shrink-0 ${
               idx === 0 ? 'bg-[var(--success)] text-white' : 'bg-[var(--secondary)] text-[var(--muted-foreground)]'
             }">
-              ${String(idx + 1).padStart(2, '0')}
+              ${idx + 1}
             </div>
 
-            <div class="space-y-1.5 min-w-0 flex-1">
+            <div class="space-y-1 min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-1.5">
-                <span class="font-bold text-sm sm:text-[15px] ${idx === 0 ? 'text-[var(--success)]' : 'text-[var(--foreground)]'}">
-                  【${product.brand || '品牌'}】${fullItemTitle}
+                <span class="font-bold text-[13px] sm:text-sm ${idx === 0 ? 'text-[var(--success)]' : 'text-[var(--foreground)]'}">
+                  ${item.isLiveResult ? fullItemTitle : `【${product.brand || '品牌'}】${fullItemTitle}`}
                 </span>
-                <span class="px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--foreground)] font-medium">
+                <span class="px-1.5 py-0.5 rounded bg-[var(--secondary)] text-[var(--foreground)] text-[11px] font-medium">
                   ${item.specText}
                 </span>
-                <span class="px-2 py-0.5 rounded-full text-[11px] ${histSignal.badgeClass}">
-                  ${histSignal.icon} ${histSignal.label}
-                </span>
-                ${isCheapestTotal ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[var(--success)] text-white">💰 最低價</span>` : ''}
-                ${isCheapestUnit && !isCheapestTotal ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[var(--primary)] text-[var(--primary-foreground)]">⚖️ 最低單價</span>` : ''}
-                ${item.promo ? `<span class="px-1.5 py-0.5 rounded border border-[var(--border)] text-[var(--foreground)] font-medium">${item.promo}</span>` : ''}
+                ${isCheapestTotal
+                  ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[var(--success)] text-white">💰 最低價</span>`
+                  : (isCheapestUnit
+                      ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[var(--primary)] text-[var(--primary-foreground)]">⚖️ 最低單價</span>`
+                      : `<span class="px-2 py-0.5 rounded-full text-[11px] ${histSignal.badgeClass}">${histSignal.icon} ${histSignal.level === 'good' ? '近期低點' : histSignal.level === 'normal' ? '均價' : '偏貴'}</span>`)
+                }
+                ${item.promo ? `<span class="px-1.5 py-0.5 rounded border border-[var(--border)] text-[var(--muted-foreground)] text-[11px]">${item.promo}</span>` : ''}
               </div>
 
-              <div class="text-[var(--muted-foreground)] flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span>
-                  ${store.type === 'physical' ? '🏪 實體門市：' : '🛒 網購平台：'}<strong class="text-[var(--foreground)] font-semibold">${store.name}</strong>
-                </span>
+              <div class="text-[var(--muted-foreground)] flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <strong class="text-[var(--foreground)] font-semibold">${store.name}</strong>
+                <span>·</span>
                 <span>
                   ${item.distKm !== null
-                    ? `📍 距離 ${formatDistance(item.distKm)}（${item.branchName}） · <span class="${showTravelAdded ? 'text-[var(--primary)] font-semibold' : ''}">🚗 來回路程約 +NT$ ${item.travelCost}</span>`
-                    : `📦 ${item.shipping || '網購配送'}`
+                    ? `${formatDistance(item.distKm)}（${item.branchName}）${showTravelAdded ? ` · 路程+$${item.travelCost}` : ''}`
+                    : `${item.shipping || '網購配送'}`
                   }
                 </span>
+                <span>·</span>
                 <a href="${links.primaryUrl}" target="_blank" rel="noopener noreferrer"
                   class="text-[var(--link)] font-medium hover:underline">
-                  ${links.primaryLabel} ↗
+                  ${item.isLiveResult ? '前往商品頁' : links.primaryLabel} ↗
                 </a>
-                ${links.secondaryUrl ? `
-                  <a href="${links.secondaryUrl}" target="_blank" rel="noopener noreferrer"
-                    class="text-[var(--link)] hover:underline">
-                    ${links.secondaryLabel} ↗
-                  </a>
-                ` : ''}
                 ${links.mapUrl ? `
                   <a href="${links.mapUrl}" target="_blank" rel="noopener noreferrer"
                     class="hover:text-[var(--foreground)] hover:underline">
-                    門市地圖 ↗
+                    地圖 ↗
                   </a>
                 ` : ''}
               </div>
@@ -1297,37 +1554,44 @@
             <div class="sm:text-right tabular-nums">
               ${showTravelAdded ? `
                 <div class="flex items-baseline sm:justify-end gap-1.5">
-                  <span class="text-xs text-[var(--muted-foreground)]">含路程</span>
+                  <span class="text-[11px] text-[var(--muted-foreground)]">含路程</span>
                   <span class="text-base sm:text-lg font-extrabold ${idx === 0 ? 'text-[var(--success)]' : 'text-[var(--foreground)]'}">
                     NT$ ${item.sortPrice}
                   </span>
                 </div>
-                <div class="text-[11px] text-[var(--muted-foreground)]">
-                  店內價 NT$ ${item.price} + 來回路程 $${item.travelCost}
-                </div>
+                <div class="text-[11px] text-[var(--muted-foreground)]">店內 $${item.price} + 路程 $${item.travelCost}</div>
               ` : `
                 <div class="flex items-baseline sm:justify-end gap-1.5">
                   <span class="text-base sm:text-lg font-extrabold ${idx === 0 ? 'text-[var(--success)]' : 'text-[var(--foreground)]'}">
                     NT$ ${item.price}
                   </span>
                   ${item.originalPrice && item.originalPrice > item.price ? `
-                    <span class="text-[11px] text-[var(--muted-foreground)] line-through">NT$ ${item.originalPrice}</span>
+                    <span class="text-[11px] text-[var(--muted-foreground)] line-through">$${item.originalPrice}</span>
                   ` : ''}
                 </div>
               `}
-              <div class="text-[11px] ${isCheapestUnit ? 'text-[var(--success)] font-semibold' : 'text-[var(--muted-foreground)]'}">
-                ${showTravelAdded ? '含路程單價：' : '單位價：'}${formatUnitPrice(item.sortUnitPrice, product.baseUnit, product.displayPer)}
-              </div>
+              ${item.qty > 1 || !item.isLiveResult ? `
+                <div class="text-[11px] ${isCheapestUnit ? 'text-[var(--success)] font-semibold' : 'text-[var(--muted-foreground)]'}">
+                  ${formatUnitPrice(item.sortUnitPrice, product.baseUnit, product.displayPer)}
+                </div>
+              ` : ''}
             </div>
 
-            <button type="button" data-basket-product="${product.id}"
-              class="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition cursor-pointer ${
-                inBasket
-                  ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]'
-                  : 'bg-[var(--background)] hover:bg-[var(--secondary)] border-[var(--border)]'
-              }">
-              ${inBasket ? '✓ 已在同店比價籃' : '+ 加入比價籃'}
-            </button>
+            ${item.isLiveResult ? `
+              <button type="button" data-save-live-idx="${item.liveIndex}"
+                class="px-2.5 py-1 rounded-lg text-[11px] font-medium border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--secondary)] transition cursor-pointer">
+                + 存成我的比價
+              </button>
+            ` : `
+              <button type="button" data-basket-product="${product.id}"
+                class="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition cursor-pointer ${
+                  inBasket
+                    ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]'
+                    : 'bg-[var(--background)] hover:bg-[var(--secondary)] border-[var(--border)]'
+                }">
+                ${inBasket ? '✓ 已在比價籃' : '+ 比價籃'}
+              </button>
+            `}
           </div>
         </div>
       `;
@@ -1342,22 +1606,25 @@
       const summaryEl = document.getElementById('current-query-summary');
       const physTitleEl = document.getElementById('physical-zone-title');
 
+      renderLiveSearchHub();
+      renderActiveFilterChips();
+
       const { physicalOffers, onlineOffers } = getFlatSortedOffers();
 
       physTitleEl.textContent = state.includeTravelCost
-        ? '🏪 實體門市品項（已計入來回路程成本排序）'
-        : '🏪 實體門市品項（依店內價錢順序排列）';
+        ? '🏪 實體門市品項（已計入來回路程成本）'
+        : '🏪 實體門市品項（依價錢順序排列）';
 
       const activeProd = state.selectedProductId !== 'all'
         ? getAllProducts().find(p => p.id === state.selectedProductId)
         : null;
       const queryTitle = activeProd
         ? `目前查詢：【${activeProd.brand}】${activeProd.name}`
-        : (state.search.trim() ? `搜尋「${state.search.trim()}」` : '目前顯示：全部產品品項');
+        : (state.search.trim() ? `搜尋「${state.search.trim()}」` : '目前顯示：全部推薦品項');
       summaryEl.textContent = `${queryTitle}（實體 ${physicalOffers.length} 筆 · 網購 ${onlineOffers.length} 筆）`;
 
-      document.getElementById('physical-count-badge').textContent = `共 ${physicalOffers.length} 筆實體店品項`;
-      document.getElementById('online-count-badge').textContent = `共 ${onlineOffers.length} 筆網購品項`;
+      document.getElementById('physical-count-badge').textContent = `共 ${physicalOffers.length} 筆`;
+      document.getElementById('online-count-badge').textContent = `共 ${onlineOffers.length} 筆`;
 
       const minPhysPrice = physicalOffers.length ? Math.min(...physicalOffers.map(o => o.sortPrice)) : Infinity;
       const minPhysUnit = physicalOffers.length ? Math.min(...physicalOffers.map(o => o.sortUnitPrice)) : Infinity;
@@ -1383,6 +1650,43 @@
           else state.basketProducts.add(pid);
           document.getElementById('kpi-basket-count').textContent = state.basketProducts.size;
           renderFlatOfferLists();
+        });
+      });
+
+      document.querySelectorAll('[data-save-live-idx]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.dataset.saveLiveIdx, 10);
+          const lo = state.liveOnlineOffers[idx];
+          if (!lo) return;
+          const newProd = {
+            id: `custom_${Date.now()}`,
+            brand: '即時搜尋',
+            name: lo.itemTitle,
+            shortLabel: `⚡ ${state.liveSearchKeyword || lo.itemTitle.slice(0, 8)}`,
+            searchKey: `${state.liveSearchKeyword} ${lo.itemTitle}`,
+            category: '即時搜尋',
+            baseUnit: lo.product.baseUnit,
+            displayPer: lo.product.displayPer,
+            isCustom: true,
+            offers: [{
+              storeId: lo.storeId,
+              itemTitle: lo.itemTitle,
+              price: lo.price,
+              originalPrice: lo.originalPrice,
+              histLow: lo.histLow,
+              histAvg: lo.histAvg,
+              qty: lo.qty,
+              url: lo.url,
+              specText: lo.specText,
+              promo: '已儲存即時價',
+              shipping: lo.shipping
+            }]
+          };
+          customProducts.unshift(newProd);
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(customProducts)); } catch (err) {}
+          btn.textContent = '✓ 已儲存';
+          btn.disabled = true;
+          renderProductQueryPills();
         });
       });
     }
@@ -1713,19 +2017,9 @@
       try { localStorage.setItem('tw_price_theme', isDark ? 'dark' : 'light'); } catch (e) {}
     });
 
-    document.querySelectorAll('.sort-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        state.sort = btn.dataset.sort;
-        document.querySelectorAll('.sort-btn').forEach(b => {
-          const active = b.dataset.sort === state.sort;
-          b.className = `sort-btn px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
-            active
-              ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
-              : 'bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
-          }`;
-        });
-        renderFlatOfferLists();
-      });
+    document.getElementById('sort-select').addEventListener('change', (e) => {
+      state.sort = e.target.value;
+      renderFlatOfferLists();
     });
 
     document.querySelectorAll('.view-mode-btn').forEach(btn => {
@@ -1733,7 +2027,7 @@
         state.viewMode = btn.dataset.viewMode;
         document.querySelectorAll('.view-mode-btn').forEach(b => {
           const active = b.dataset.viewMode === state.viewMode;
-          b.className = `view-mode-btn px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${
+          b.className = `view-mode-btn px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer ${
             active
               ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
               : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
@@ -1758,32 +2052,68 @@
       renderFlatOfferLists();
     });
 
+    let liveSearchDebounce = null;
     document.getElementById('search-input').addEventListener('input', (e) => {
       const val = e.target.value;
       state.search = val;
       state.selectedProductId = 'all';
+      if (!val.trim()) {
+        state.liveSearchKeyword = '';
+        state.liveSearchStatus = 'idle';
+        state.liveOnlineOffers = [];
+      }
       document.getElementById('btn-clear-search').classList.toggle('hidden', !val.trim());
       renderProductQueryPills();
       renderFlatOfferLists();
+
+      clearTimeout(liveSearchDebounce);
+      const trimmed = val.trim();
+      if (trimmed.length >= 2) {
+        liveSearchDebounce = setTimeout(() => {
+          const { physicalOffers, onlineOffers } = getFlatSortedOffers();
+          if (physicalOffers.length === 0 && onlineOffers.length === 0 && state.liveSearchKeyword !== trimmed) {
+            fetchLivePChomeOffers(trimmed);
+          }
+        }, 550);
+      }
     });
 
-    document.getElementById('btn-clear-search').addEventListener('click', () => {
+    document.getElementById('search-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const kw = document.getElementById('search-input').value.trim();
+      if (!kw) return;
+      state.search = kw;
+      state.selectedProductId = 'all';
+      document.getElementById('btn-clear-search').classList.remove('hidden');
+      renderProductQueryPills();
+      renderFlatOfferLists();
+      fetchLivePChomeOffers(kw);
+    });
+
+    document.getElementById('btn-add-searched-product').addEventListener('click', () => {
+      const kw = document.getElementById('search-input').value.trim();
+      const container = document.getElementById('custom-offers-container');
+      container.innerHTML = '';
+      addCustomOfferRow('pxmart');
+      addCustomOfferRow('momo');
+      if (kw) document.getElementById('add-name').value = kw;
+      document.getElementById('modal-add').classList.remove('hidden');
+    });
+
+    const resetToAllProducts = () => {
       state.search = '';
       state.selectedProductId = 'all';
+      state.liveSearchKeyword = '';
+      state.liveSearchStatus = 'idle';
+      state.liveOnlineOffers = [];
       document.getElementById('search-input').value = '';
       document.getElementById('btn-clear-search').classList.add('hidden');
       renderProductQueryPills();
       renderFlatOfferLists();
-    });
+    };
 
-    document.getElementById('btn-search-all').addEventListener('click', () => {
-      state.search = '';
-      state.selectedProductId = 'all';
-      document.getElementById('search-input').value = '';
-      document.getElementById('btn-clear-search').classList.add('hidden');
-      renderProductQueryPills();
-      renderFlatOfferLists();
-    });
+    document.getElementById('btn-clear-search').addEventListener('click', resetToAllProducts);
+    document.getElementById('btn-search-all').addEventListener('click', resetToAllProducts);
 
     document.getElementById('btn-toggle-filters').addEventListener('click', () => {
       document.getElementById('filter-drawer').classList.toggle('hidden');
